@@ -1,0 +1,374 @@
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getBaseUrl } from '@/lib/url'
+import { formatMoney } from '@/lib/money'
+import { JOB_STATUSES, JOB_STATUS_LABELS } from '@trade-assist/db'
+import type { Customer, CostEntry, Job, JobFile } from '@trade-assist/db'
+import { addCostEntry, deleteCostEntry, deleteJobFile, updateJob, uploadJobFile } from './actions'
+import QuotePanel, { type QuoteDetail } from './QuotePanel'
+import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
+
+type JobDetail = Job & {
+  customer: Customer | null
+  cost_entries: CostEntry[]
+  job_files: JobFile[]
+  company: { currency: string; tax_label: string }
+}
+
+export default async function JobDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string; openQuote?: string; openInvoice?: string }>
+}) {
+  const { id } = await params
+  const { error: actionError, openQuote, openInvoice } = await searchParams
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('jobs')
+    .select('*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label)')
+    .eq('id', id)
+    .maybeSingle()
+
+  const job = data as unknown as JobDetail | null
+
+  if (!job) notFound()
+
+  const currency = job.company.currency
+  const taxLabel = job.company.tax_label
+
+  const materials = job.cost_entries.filter((c) => c.type === 'material')
+  const labour = job.cost_entries.filter((c) => c.type === 'labour')
+  const materialsTotal = materials.reduce((sum, c) => sum + Number(c.total_cost), 0)
+  const labourTotal = labour.reduce((sum, c) => sum + Number(c.total_cost), 0)
+
+  const filesWithUrls = await Promise.all(
+    job.job_files.map(async (f) => {
+      const { data } = await supabase.storage.from('job-files').createSignedUrl(f.file_url, 3600)
+      return { ...f, signedUrl: data?.signedUrl ?? null }
+    })
+  )
+
+  const { data: quotesData } = await supabase
+    .from('quotes')
+    .select('*, quote_line_items(*)')
+    .eq('job_id', job.id)
+    .order('created_at', { ascending: false })
+
+  const allQuotes = (quotesData ?? []) as unknown as QuoteDetail[]
+  const quote = allQuotes.find((q) => !q.superseded_at) ?? null
+  const previousQuotes = allQuotes.filter((q) => q.superseded_at)
+  const baseUrl = await getBaseUrl()
+
+  const { data: invoicesData } = await supabase
+    .from('invoices')
+    .select('*, invoice_line_items(*)')
+    .eq('job_id', job.id)
+    .order('created_at', { ascending: false })
+
+  const allInvoices = (invoicesData ?? []) as unknown as InvoiceDetail[]
+  const invoices = allInvoices.filter((inv) => !inv.superseded_at)
+  const previousInvoices = allInvoices.filter((inv) => inv.superseded_at)
+  const uninvoicedCostEntries = job.cost_entries.filter((c) => !c.invoiced_at)
+  const invoicedTotal = invoices.reduce((sum, inv) => sum + Number(inv.total) + Number(inv.tax_amount), 0)
+  const profit = invoicedTotal - (materialsTotal + labourTotal)
+
+  const boundUpdateJob = updateJob.bind(null, job.id)
+  const boundAddCostEntry = addCostEntry.bind(null, job.id)
+  const boundUploadJobFile = uploadJobFile.bind(null, job.id)
+
+  return (
+    <div className="flex flex-col gap-8">
+      {actionError && (
+        <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
+      )}
+
+      <div>
+        <p className="text-sm text-muted">Job</p>
+        <h1 className="text-2xl font-semibold">{job.job_number ?? '—'}</h1>
+        <p className="text-sm text-muted">{job.customer?.name ?? 'No customer'}</p>
+        <div className="mt-3 flex gap-6 text-sm">
+          <span>
+            Invoiced: <span className="font-medium">{formatMoney(invoicedTotal, currency)}</span>
+          </span>
+          <span>
+            Costs:{' '}
+            <span className="font-medium">{formatMoney(materialsTotal + labourTotal, currency)}</span>
+          </span>
+          <span>
+            Profit: <span className="font-medium">{formatMoney(profit, currency)}</span>
+          </span>
+        </div>
+      </div>
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Details</h2>
+        <form action={boundUpdateJob} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="status" className="text-sm font-medium">
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              defaultValue={job.status}
+              className="max-w-xs rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            >
+              {JOB_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {JOB_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="address_line" className="text-sm font-medium">
+              Job address
+            </label>
+            <input
+              id="address_line"
+              name="address_line"
+              type="text"
+              defaultValue={job.address_line ?? ''}
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="start_date" className="text-sm font-medium">
+                Start date
+              </label>
+              <input
+                id="start_date"
+                name="start_date"
+                type="date"
+                defaultValue={job.start_date ?? ''}
+                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="finish_date" className="text-sm font-medium">
+                Finish date
+              </label>
+              <input
+                id="finish_date"
+                name="finish_date"
+                type="date"
+                defaultValue={job.finish_date ?? ''}
+                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="notes" className="text-sm font-medium">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              defaultValue={job.notes ?? ''}
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+          >
+            Save
+          </button>
+        </form>
+      </section>
+
+      <QuotePanel
+        key={quote?.id ?? 'none'}
+        jobId={job.id}
+        quote={quote}
+        previousQuotes={previousQuotes}
+        baseUrl={baseUrl}
+        initialOpenId={openQuote}
+        currency={currency}
+        taxLabel={taxLabel}
+      />
+
+      <InvoicePanel
+        key={invoices.map((inv) => inv.id).join(',')}
+        jobId={job.id}
+        invoices={invoices}
+        previousInvoices={previousInvoices}
+        uninvoicedCostEntries={uninvoicedCostEntries}
+        initialOpenId={openInvoice}
+        currency={currency}
+        taxLabel={taxLabel}
+      />
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Costs</h2>
+
+        <div className="mb-4 flex gap-6 text-sm">
+          <span>
+            Materials: <span className="font-medium">{formatMoney(materialsTotal, currency)}</span>
+          </span>
+          <span>
+            Labour: <span className="font-medium">{formatMoney(labourTotal, currency)}</span>
+          </span>
+          <span>
+            Total:{' '}
+            <span className="font-medium">{formatMoney(materialsTotal + labourTotal, currency)}</span>
+          </span>
+        </div>
+
+        {job.cost_entries.length > 0 && (
+          <table className="mb-4 w-full text-left text-sm">
+            <thead className="text-muted">
+              <tr>
+                <th className="py-1 font-medium">Type</th>
+                <th className="py-1 font-medium">Description</th>
+                <th className="py-1 font-medium">Qty</th>
+                <th className="py-1 font-medium">Unit cost</th>
+                <th className="py-1 font-medium">Total</th>
+                <th className="py-1" />
+              </tr>
+            </thead>
+            <tbody>
+              {job.cost_entries.map((entry) => {
+                const boundDelete = deleteCostEntry.bind(null, job.id, entry.id)
+                return (
+                  <tr key={entry.id} className="border-t border-surface-border">
+                    <td className="py-1 capitalize">{entry.type}</td>
+                    <td className="py-1">{entry.description}</td>
+                    <td className="py-1">{entry.quantity}</td>
+                    <td className="py-1">{formatMoney(Number(entry.unit_cost), currency)}</td>
+                    <td className="py-1">{formatMoney(Number(entry.total_cost), currency)}</td>
+                    <td className="py-1 text-right">
+                      {entry.invoiced_at ? (
+                        <span className="inline-flex items-center rounded-full bg-surface px-2 py-0.5 text-xs text-muted">
+                          Invoiced
+                        </span>
+                      ) : (
+                        <form action={boundDelete}>
+                          <button type="submit" className="text-xs text-muted hover:text-accent">
+                            Remove
+                          </button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+
+        <form action={boundAddCostEntry} className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="type" className="text-xs font-medium">
+              Type
+            </label>
+            <select
+              id="type"
+              name="type"
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            >
+              <option value="material">Material</option>
+              <option value="labour">Labour</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="description" className="text-xs font-medium">
+              Description
+            </label>
+            <input
+              id="description"
+              name="description"
+              type="text"
+              required
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="quantity" className="text-xs font-medium">
+              Qty / hours
+            </label>
+            <input
+              id="quantity"
+              name="quantity"
+              type="number"
+              step="0.01"
+              defaultValue="1"
+              className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="unit_cost" className="text-xs font-medium">
+              Unit cost / rate
+            </label>
+            <input
+              id="unit_cost"
+              name="unit_cost"
+              type="number"
+              step="0.01"
+              defaultValue="0"
+              className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+          >
+            Add
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Photos &amp; files</h2>
+
+        {filesWithUrls.length > 0 && (
+          <ul className="mb-4 flex flex-col gap-2 text-sm">
+            {filesWithUrls.map((f) => {
+              const boundDeleteFile = deleteJobFile.bind(null, job.id, f.id, f.file_url)
+              return (
+                <li key={f.id} className="flex items-center justify-between gap-4">
+                  {f.signedUrl ? (
+                    <a href={f.signedUrl} target="_blank" rel="noreferrer" className="text-accent">
+                      {f.file_url.split('/').pop()}
+                    </a>
+                  ) : (
+                    <span>{f.file_url.split('/').pop()}</span>
+                  )}
+                  <form action={boundDeleteFile}>
+                    <button type="submit" className="text-xs text-muted hover:text-accent">
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <form action={boundUploadJobFile} className="flex items-center gap-3">
+          <input
+            type="file"
+            name="file"
+            required
+            className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+          >
+            Upload
+          </button>
+        </form>
+      </section>
+    </div>
+  )
+}

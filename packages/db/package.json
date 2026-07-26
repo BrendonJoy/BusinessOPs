@@ -1,0 +1,7 @@
+{
+  "name": "@trade-assist/db",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/types.ts",
+  "types": "src/types.ts"
+}
