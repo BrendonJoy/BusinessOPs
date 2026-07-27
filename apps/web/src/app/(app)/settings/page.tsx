@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { getBaseUrl } from '@/lib/url'
 import { CURRENCIES } from '@trade-assist/db'
 import type { Company, Profile } from '@trade-assist/db'
-import { updateCompany, updateProfile, uploadCompanyLogo } from './actions'
+import { regenerateCalendarToken, updateCompany, updateProfile, uploadCompanyLogo } from './actions'
 
 type ProfileWithCompany = Profile & { company: Company | null }
 
@@ -25,6 +26,8 @@ export default async function SettingsPage({
 
   const profile = data as unknown as ProfileWithCompany
   const company = profile.company
+  const baseUrl = await getBaseUrl()
+  const calendarFeedUrl = company ? `${baseUrl}/api/calendar/${company.calendar_token}` : null
 
   return (
     <div className="flex max-w-xl flex-col gap-8">
@@ -180,6 +183,26 @@ export default async function SettingsPage({
             className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
           >
             Save company details
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-2 text-sm font-medium">Calendar subscription</h2>
+        <p className="mb-3 text-sm text-muted">
+          Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to see your jobs
+          alongside your personal calendar. It updates automatically — no login needed, but treat
+          the link like a password since anyone with it can view your job schedule.
+        </p>
+        {calendarFeedUrl && (
+          <p className="mb-3 break-all rounded-md bg-surface px-3 py-2 text-sm">{calendarFeedUrl}</p>
+        )}
+        <form action={regenerateCalendarToken}>
+          <button
+            type="submit"
+            className="rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+          >
+            Regenerate link
           </button>
         </form>
       </section>

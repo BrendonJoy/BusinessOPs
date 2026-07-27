@@ -58,6 +58,21 @@ export async function updateProfile(formData: FormData) {
   revalidatePath('/settings')
 }
 
+export async function regenerateCalendarToken() {
+  const supabase = await createClient()
+  const { data: profile } = await supabase.from('profiles').select('company_id').single()
+  if (!profile) errorRedirect('Could not determine your company.')
+
+  const { error } = await supabase
+    .from('companies')
+    .update({ calendar_token: crypto.randomUUID() })
+    .eq('id', profile.company_id)
+
+  if (error) errorRedirect(error.message)
+
+  revalidatePath('/settings')
+}
+
 export async function uploadCompanyLogo(formData: FormData) {
   const file = formData.get('logo') as File | null
   if (!file || file.size === 0) return

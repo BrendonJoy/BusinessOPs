@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const AUTH_PATHS = ['/login', '/signup']
-const PUBLIC_PATHS = ['/q']
+const PUBLIC_PATHS = ['/q', '/api/calendar']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })

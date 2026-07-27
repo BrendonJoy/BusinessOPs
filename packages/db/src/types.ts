@@ -15,6 +15,7 @@ export interface Company {
   default_tax_rate: number
   gst_registered: boolean
   payment_details: string | null
+  calendar_token: string
   created_at: string
 }
 
