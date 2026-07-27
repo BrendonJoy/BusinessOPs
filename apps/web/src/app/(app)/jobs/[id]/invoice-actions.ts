@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { logJobAudit } from '@/lib/audit'
 
 function errorRedirect(jobId: string, message: string): never {
   redirect(`/jobs/${jobId}?error=${encodeURIComponent(message)}`)
@@ -18,6 +19,7 @@ export async function updateInvoiceStatus(invoiceId: string, jobId: string, form
   const supabase = await createClient()
   const { error } = await supabase.from('invoices').update(updates).eq('id', invoiceId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, `Invoice status changed to ${status}`)
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -26,6 +28,7 @@ export async function updateInvoiceTaxRate(invoiceId: string, jobId: string, for
   const supabase = await createClient()
   const { error } = await supabase.from('invoices').update({ tax_rate: taxRate }).eq('id', invoiceId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, `Invoice tax rate updated to ${taxRate}%`)
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -33,6 +36,7 @@ export async function createInvoice(jobId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('invoices').insert({ job_id: jobId })
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Invoice created')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -53,6 +57,8 @@ export async function addInvoiceLineItem(invoiceId: string, jobId: string, formD
   })
 
   if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, `Added invoice line item: ${description}`)
 
   revalidatePath(`/jobs/${jobId}`)
 }
@@ -77,6 +83,8 @@ export async function addInvoiceLineItemsBulk(
 
   if (error) errorRedirect(jobId, error.message)
 
+  await logJobAudit(supabase, jobId, `Added ${items.length} invoice line item${items.length === 1 ? '' : 's'} via AI assistant`)
+
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -87,6 +95,7 @@ export async function importCostEntry(invoiceId: string, jobId: string, costEntr
     p_invoice_id: invoiceId,
   })
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Cost entry added to invoice')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -94,6 +103,7 @@ export async function removeInvoiceLineItem(lineItemId: string, jobId: string) {
   const supabase = await createClient()
   const { error } = await supabase.rpc('remove_invoice_line_item', { p_line_item_id: lineItemId })
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Removed invoice line item')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -106,6 +116,8 @@ export async function createInvoiceVersion(invoiceId: string, jobId: string) {
     p_invoice_id: invoiceId,
   })
   if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, 'Invoice edited (new version created)')
 
   revalidatePath(`/jobs/${jobId}`)
   redirect(`/jobs/${jobId}?openInvoice=${newInvoiceId}`)

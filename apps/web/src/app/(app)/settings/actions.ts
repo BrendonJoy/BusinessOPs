@@ -19,6 +19,8 @@ export async function updateCompany(formData: FormData) {
   const currency = String(formData.get('currency') ?? 'USD')
   const taxLabel = String(formData.get('tax_label') ?? '').trim() || 'Tax'
   const defaultTaxRate = Number(formData.get('default_tax_rate') ?? 0)
+  const gstRegistered = formData.get('gst_registered') === 'on'
+  const paymentDetails = String(formData.get('payment_details') ?? '').trim() || null
 
   if (!name) errorRedirect('Company name is required.')
 
@@ -31,6 +33,8 @@ export async function updateCompany(formData: FormData) {
       currency,
       tax_label: taxLabel,
       default_tax_rate: defaultTaxRate,
+      gst_registered: gstRegistered,
+      payment_details: paymentDetails,
     })
     .eq('id', profile.company_id)
 

@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { logJobAudit } from '@/lib/audit'
+import { JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
 
 function errorRedirect(jobId: string, message: string): never {
   redirect(`/jobs/${jobId}?error=${encodeURIComponent(message)}`)
@@ -17,12 +19,20 @@ export async function updateJob(jobId: string, formData: FormData) {
   const startDate = String(formData.get('start_date') ?? '') || null
   const finishDate = String(formData.get('finish_date') ?? '') || null
 
+  const { data: before } = await supabase.from('jobs').select('status').eq('id', jobId).maybeSingle()
+
   const { error } = await supabase
     .from('jobs')
     .update({ status, address_line: addressLine, notes, start_date: startDate, finish_date: finishDate })
     .eq('id', jobId)
 
   if (error) errorRedirect(jobId, error.message)
+
+  if (before && before.status !== status) {
+    await logJobAudit(supabase, jobId, `Status changed to ${JOB_STATUS_LABELS[status as JobStatus] ?? status}`)
+  } else {
+    await logJobAudit(supabase, jobId, 'Job details updated')
+  }
 
   revalidatePath(`/jobs/${jobId}`)
   revalidatePath('/jobs')
@@ -48,6 +58,8 @@ export async function addCostEntry(jobId: string, formData: FormData) {
 
   if (error) errorRedirect(jobId, error.message)
 
+  await logJobAudit(supabase, jobId, `Added ${type} cost: ${description}`)
+
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -55,6 +67,7 @@ export async function deleteCostEntry(jobId: string, costEntryId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('cost_entries').delete().eq('id', costEntryId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Removed cost entry')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -76,6 +89,8 @@ export async function uploadJobFile(jobId: string, formData: FormData) {
 
   if (insertError) errorRedirect(jobId, insertError.message)
 
+  await logJobAudit(supabase, jobId, `Uploaded file: ${file.name}`)
+
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -87,5 +102,20 @@ export async function deleteJobFile(jobId: string, fileId: string, filePath: str
   const { error: deleteError } = await supabase.from('job_files').delete().eq('id', fileId)
   if (deleteError) errorRedirect(jobId, deleteError.message)
 
+  await logJobAudit(supabase, jobId, 'Removed file')
+
   revalidatePath(`/jobs/${jobId}`)
+}
+
+// Permanent -- the client-side confirm dialog is the only safeguard. Relies
+// on cascading FKs (cost_entries, job_files, quotes, invoices, job_audit_log)
+// to clean up related rows; expenses are preserved (job_id/cost_entry_id set
+// null) rather than deleted, since the receipt itself is still a real record.
+export async function deleteJob(jobId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('jobs').delete().eq('id', jobId)
+  if (error) errorRedirect(jobId, error.message)
+
+  revalidatePath('/jobs')
+  redirect('/jobs')
 }

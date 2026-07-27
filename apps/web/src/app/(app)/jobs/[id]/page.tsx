@@ -2,17 +2,27 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { formatMoney } from '@/lib/money'
+import { formatAuditTimestamp } from '@/lib/audit'
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { Customer, CostEntry, Job, JobFile } from '@trade-assist/db'
-import { addCostEntry, deleteCostEntry, deleteJobFile, updateJob, uploadJobFile } from './actions'
+import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, uploadJobFile } from './actions'
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
+import DeleteJobButton from './DeleteJobButton'
+
+type AuditEntry = {
+  id: string
+  action: string
+  created_at: string
+  profile: { full_name: string | null } | null
+}
 
 type JobDetail = Job & {
   customer: Customer | null
   cost_entries: CostEntry[]
   job_files: JobFile[]
-  company: { currency: string; tax_label: string }
+  company: { currency: string; tax_label: string; gst_registered: boolean }
+  job_audit_log: AuditEntry[]
 }
 
 export default async function JobDetailPage({
@@ -28,7 +38,9 @@ export default async function JobDetailPage({
 
   const { data } = await supabase
     .from('jobs')
-    .select('*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label)')
+    .select(
+      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered), job_audit_log(id, action, created_at, profile:profiles(full_name))'
+    )
     .eq('id', id)
     .maybeSingle()
 
@@ -38,6 +50,10 @@ export default async function JobDetailPage({
 
   const currency = job.company.currency
   const taxLabel = job.company.tax_label
+  const gstRegistered = job.company.gst_registered
+  const auditLog = [...job.job_audit_log].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
 
   const materials = job.cost_entries.filter((c) => c.type === 'material')
   const labour = job.cost_entries.filter((c) => c.type === 'labour')
@@ -49,6 +65,21 @@ export default async function JobDetailPage({
       const { data } = await supabase.storage.from('job-files').createSignedUrl(f.file_url, 3600)
       return { ...f, signedUrl: data?.signedUrl ?? null }
     })
+  )
+
+  const { data: jobExpenses } = await supabase
+    .from('expenses')
+    .select('cost_entry_id, file_path')
+    .eq('job_id', job.id)
+    .not('cost_entry_id', 'is', null)
+
+  const receiptByCostEntryId = new Map(
+    await Promise.all(
+      (jobExpenses ?? []).map(async (e) => {
+        const { data } = await supabase.storage.from('expense-receipts').createSignedUrl(e.file_path, 3600)
+        return [e.cost_entry_id as string, data?.signedUrl ?? null] as const
+      })
+    )
   )
 
   const { data: quotesData } = await supabase
@@ -184,6 +215,10 @@ export default async function JobDetailPage({
             Save
           </button>
         </form>
+
+        <div className="mt-4 border-t border-surface-border pt-4">
+          <DeleteJobButton jobNumber={job.job_number ?? 'this job'} onDelete={deleteJob.bind(null, job.id)} />
+        </div>
       </section>
 
       <QuotePanel
@@ -195,6 +230,7 @@ export default async function JobDetailPage({
         initialOpenId={openQuote}
         currency={currency}
         taxLabel={taxLabel}
+        gstRegistered={gstRegistered}
       />
 
       <InvoicePanel
@@ -206,6 +242,7 @@ export default async function JobDetailPage({
         initialOpenId={openInvoice}
         currency={currency}
         taxLabel={taxLabel}
+        gstRegistered={gstRegistered}
       />
 
       <section className="rounded-lg border border-surface-border p-4">
@@ -239,10 +276,30 @@ export default async function JobDetailPage({
             <tbody>
               {job.cost_entries.map((entry) => {
                 const boundDelete = deleteCostEntry.bind(null, job.id, entry.id)
+                const receiptUrl = receiptByCostEntryId.get(entry.id)
                 return (
                   <tr key={entry.id} className="border-t border-surface-border">
                     <td className="py-1 capitalize">{entry.type}</td>
-                    <td className="py-1">{entry.description}</td>
+                    <td className="py-1">
+                      {entry.description}
+                      {receiptUrl !== undefined && (
+                        <>
+                          {' '}
+                          {receiptUrl ? (
+                            <a
+                              href={receiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-accent hover:opacity-80"
+                            >
+                              (receipt)
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted">(receipt)</span>
+                          )}
+                        </>
+                      )}
+                    </td>
                     <td className="py-1">{entry.quantity}</td>
                     <td className="py-1">{formatMoney(Number(entry.unit_cost), currency)}</td>
                     <td className="py-1">{formatMoney(Number(entry.total_cost), currency)}</td>
@@ -368,6 +425,23 @@ export default async function JobDetailPage({
             Upload
           </button>
         </form>
+      </section>
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Activity</h2>
+
+        {auditLog.length === 0 ? (
+          <p className="text-sm text-muted">No activity recorded yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {auditLog.map((entry) => (
+              <li key={entry.id} className="text-muted">
+                <span className="text-foreground">{formatAuditTimestamp(entry.created_at)}</span>{' '}
+                {entry.profile?.full_name ?? 'System'} — {entry.action}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )

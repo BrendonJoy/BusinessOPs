@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD } from '@/lib/calendar'
+import { logJobAudit } from '@/lib/audit'
 
 function parseYMD(s: string): Date {
   const [y, m, d] = s.split('-').map(Number)
@@ -30,6 +31,8 @@ export async function rescheduleJob(
 
   const supabase = await createClient()
   await supabase.from('jobs').update(updates).eq('id', jobId)
+
+  await logJobAudit(supabase, jobId, `Rescheduled to ${newStartDate}`)
 
   revalidatePath('/calendar')
   revalidatePath('/jobs')

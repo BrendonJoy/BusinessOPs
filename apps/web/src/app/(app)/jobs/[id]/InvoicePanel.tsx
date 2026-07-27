@@ -28,6 +28,7 @@ export default function InvoicePanel({
   initialOpenId,
   currency,
   taxLabel,
+  gstRegistered,
 }: {
   jobId: string
   invoices: InvoiceDetail[]
@@ -36,6 +37,7 @@ export default function InvoicePanel({
   initialOpenId?: string
   currency: string
   taxLabel: string
+  gstRegistered: boolean
 }) {
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(
     initialOpenId && invoices.some((inv) => inv.id === initialOpenId) ? initialOpenId : null
@@ -44,6 +46,7 @@ export default function InvoicePanel({
 
   const openInvoice = invoices.find((inv) => inv.id === openInvoiceId) ?? null
   const boundCreateInvoice = createInvoice.bind(null, jobId)
+  const grandTotal = (inv: InvoiceDetail) => Number(inv.total) + (gstRegistered ? Number(inv.tax_amount) : 0)
 
   function openInvoicePanel(id: string | null) {
     setOpenInvoiceId(id)
@@ -83,10 +86,7 @@ export default function InvoicePanel({
                 {invoice.status}
               </span>
               <span>
-                Total:{' '}
-                <span className="font-medium">
-                  {formatMoney(Number(invoice.total) + Number(invoice.tax_amount), currency)}
-                </span>
+                Total: <span className="font-medium">{formatMoney(grandTotal(invoice), currency)}</span>
               </span>
               <a href={`/api/invoices/${invoice.id}/pdf`} className="text-accent hover:opacity-80">
                 Download PDF
@@ -122,8 +122,7 @@ export default function InvoicePanel({
           <ul className="mt-2 flex flex-col gap-2">
             {previousInvoices.map((inv) => (
               <li key={inv.id} className="rounded-md bg-surface p-2 text-xs">
-                <span className="capitalize">{inv.status}</span> —{' '}
-                {formatMoney(Number(inv.total) + Number(inv.tax_amount), currency)}
+                <span className="capitalize">{inv.status}</span> — {formatMoney(grandTotal(inv), currency)}
                 {inv.superseded_at && (
                   <span className="text-muted">
                     {' '}
@@ -156,9 +155,7 @@ export default function InvoicePanel({
               </span>
               <span>
                 Total:{' '}
-                <span className="font-medium">
-                  {formatMoney(Number(openInvoice.total) + Number(openInvoice.tax_amount), currency)}
-                </span>
+                <span className="font-medium">{formatMoney(grandTotal(openInvoice), currency)}</span>
               </span>
               <a href={`/api/invoices/${openInvoice.id}/pdf`} className="text-accent hover:opacity-80">
                 Download PDF
@@ -184,26 +181,26 @@ export default function InvoicePanel({
               </form>
             </div>
 
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted">Subtotal</span>
-                <span>{formatMoney(Number(openInvoice.total), currency)}</span>
+            {gstRegistered && (
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted">Subtotal</span>
+                  <span>{formatMoney(Number(openInvoice.total), currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">
+                    {taxLabel} ({Number(openInvoice.tax_rate)}%)
+                  </span>
+                  <span>{formatMoney(Number(openInvoice.tax_amount), currency)}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Total</span>
+                  <span>{formatMoney(grandTotal(openInvoice), currency)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">
-                  {taxLabel} ({Number(openInvoice.tax_rate)}%)
-                </span>
-                <span>{formatMoney(Number(openInvoice.tax_amount), currency)}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Total</span>
-                <span>
-                  {formatMoney(Number(openInvoice.total) + Number(openInvoice.tax_amount), currency)}
-                </span>
-              </div>
-            </div>
+            )}
 
-            {openInvoice.status === 'draft' && (
+            {gstRegistered && openInvoice.status === 'draft' && (
               <form
                 action={updateInvoiceTaxRate.bind(null, openInvoice.id, jobId)}
                 className="flex items-end gap-3"

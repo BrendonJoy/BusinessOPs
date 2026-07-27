@@ -1,14 +1,24 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { JOB_STATUSES, JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
+import { JOB_STATUS_GROUPS, JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
+
+const VIEWS = ['active', 'completed', 'cancelled'] as const
+type View = (typeof VIEWS)[number]
+
+const VIEW_LABELS: Record<View, string> = {
+  active: 'Active',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
 
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>
+  searchParams: Promise<{ status?: string; q?: string; view?: string }>
 }) {
-  const { status, q } = await searchParams
+  const { status, q, view: viewParam } = await searchParams
+  const view: View = VIEWS.includes(viewParam as View) ? (viewParam as View) : 'active'
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -16,7 +26,10 @@ export default async function JobsPage({
     .select('*, customer:customers(id, name)')
     .order('created_at', { ascending: false })
 
+  const groupStatuses = JOB_STATUS_GROUPS[view]
+
   const jobs = ((data ?? []) as unknown as JobWithCustomer[]).filter((job) => {
+    if (!groupStatuses.includes(job.status)) return false
     if (status && job.status !== status) return false
     if (q) {
       const needle = q.toLowerCase()
@@ -41,7 +54,22 @@ export default async function JobsPage({
         </Link>
       </div>
 
+      <div className="mb-6 flex gap-4 border-b border-surface-border text-sm">
+        {VIEWS.map((v) => (
+          <Link
+            key={v}
+            href={`/jobs?view=${v}`}
+            className={`border-b-2 px-1 pb-2 font-medium ${
+              v === view ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-foreground'
+            }`}
+          >
+            {VIEW_LABELS[v]}
+          </Link>
+        ))}
+      </div>
+
       <form className="mb-6 flex flex-wrap gap-3" method="get">
+        <input type="hidden" name="view" value={view} />
         <input
           type="text"
           name="q"
@@ -49,18 +77,20 @@ export default async function JobsPage({
           placeholder="Search job number, customer, address..."
           className="min-w-[240px] flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
         />
-        <select
-          name="status"
-          defaultValue={status ?? ''}
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        >
-          <option value="">All statuses</option>
-          {JOB_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {JOB_STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
+        {view === 'active' && (
+          <select
+            name="status"
+            defaultValue={status ?? ''}
+            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          >
+            <option value="">All active statuses</option>
+            {groupStatuses.map((s) => (
+              <option key={s} value={s}>
+                {JOB_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           type="submit"
           className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
@@ -75,7 +105,7 @@ export default async function JobsPage({
         <p className="text-sm text-muted">
           {status || q
             ? 'No jobs match your search or filter.'
-            : 'No jobs yet. Create your first job to get started.'}
+            : `No ${VIEW_LABELS[view].toLowerCase()} jobs.`}
         </p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-surface-border">

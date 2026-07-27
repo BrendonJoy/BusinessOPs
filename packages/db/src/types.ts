@@ -1,4 +1,4 @@
-export type JobStatus = 'quoted' | 'scheduled' | 'in_progress' | 'completed' | 'invoiced'
+export type JobStatus = 'quoted' | 'scheduled' | 'in_progress' | 'completed' | 'invoiced' | 'cancelled'
 export type CostEntryType = 'material' | 'labour'
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined'
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue'
@@ -13,6 +13,8 @@ export interface Company {
   currency: string
   tax_label: string
   default_tax_rate: number
+  gst_registered: boolean
+  payment_details: string | null
   created_at: string
 }
 
@@ -136,7 +138,14 @@ export interface Expense {
   created_at: string
 }
 
-export const JOB_STATUSES: JobStatus[] = ['quoted', 'scheduled', 'in_progress', 'completed', 'invoiced']
+export const JOB_STATUSES: JobStatus[] = [
+  'quoted',
+  'scheduled',
+  'in_progress',
+  'completed',
+  'invoiced',
+  'cancelled',
+]
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   quoted: 'Quoted',
@@ -144,6 +153,13 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   in_progress: 'In Progress',
   completed: 'Completed',
   invoiced: 'Invoiced',
+  cancelled: 'Cancelled',
+}
+
+export const JOB_STATUS_GROUPS: Record<'active' | 'completed' | 'cancelled', JobStatus[]> = {
+  active: ['quoted', 'scheduled', 'in_progress'],
+  completed: ['completed', 'invoiced'],
+  cancelled: ['cancelled'],
 }
 
 export const CURRENCIES = [

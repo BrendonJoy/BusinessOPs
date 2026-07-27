@@ -26,6 +26,7 @@ export default function QuotePanel({
   initialOpenId,
   currency,
   taxLabel,
+  gstRegistered,
 }: {
   jobId: string
   quote: QuoteDetail | null
@@ -34,12 +35,14 @@ export default function QuotePanel({
   initialOpenId?: string
   currency: string
   taxLabel: string
+  gstRegistered: boolean
 }) {
   const [isOpen, setIsOpen] = useState(Boolean(quote && initialOpenId === quote.id))
   const [pendingItems, setPendingItems] = useState<ParsedLineItem[]>([])
 
   const quoteFrozen = quote?.status === 'accepted' || quote?.status === 'declined'
   const boundCreateQuote = createQuote.bind(null, jobId)
+  const grandTotal = (q: QuoteDetail) => Number(q.total) + (gstRegistered ? Number(q.tax_amount) : 0)
 
   async function addPendingItems() {
     if (!quote || pendingItems.length === 0) return
@@ -86,10 +89,7 @@ export default function QuotePanel({
             {quote.status}
           </span>
           <span>
-            Total:{' '}
-            <span className="font-medium">
-              {formatMoney(Number(quote.total) + Number(quote.tax_amount), currency)}
-            </span>
+            Total: <span className="font-medium">{formatMoney(grandTotal(quote), currency)}</span>
           </span>
           {quote.share_token && (
             <a
@@ -114,8 +114,7 @@ export default function QuotePanel({
           <ul className="mt-2 flex flex-col gap-2">
             {previousQuotes.map((q) => (
               <li key={q.id} className="rounded-md bg-surface p-2 text-xs">
-                <span className="capitalize">{q.status}</span> —{' '}
-                {formatMoney(Number(q.total) + Number(q.tax_amount), currency)}
+                <span className="capitalize">{q.status}</span> — {formatMoney(grandTotal(q), currency)}
                 {q.superseded_at && (
                   <span className="text-muted">
                     {' '}
@@ -147,10 +146,7 @@ export default function QuotePanel({
                 {quote.status}
               </span>
               <span>
-                Total:{' '}
-                <span className="font-medium">
-                  {formatMoney(Number(quote.total) + Number(quote.tax_amount), currency)}
-                </span>
+                Total: <span className="font-medium">{formatMoney(grandTotal(quote), currency)}</span>
               </span>
               {quote.status === 'draft' && (
                 <form action={markQuoteSent.bind(null, quote.id, jobId)}>
@@ -161,22 +157,24 @@ export default function QuotePanel({
               )}
             </div>
 
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted">Subtotal</span>
-                <span>{formatMoney(Number(quote.total), currency)}</span>
+            {gstRegistered && (
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted">Subtotal</span>
+                  <span>{formatMoney(Number(quote.total), currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">
+                    {taxLabel} ({Number(quote.tax_rate)}%)
+                  </span>
+                  <span>{formatMoney(Number(quote.tax_amount), currency)}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Total</span>
+                  <span>{formatMoney(grandTotal(quote), currency)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">
-                  {taxLabel} ({Number(quote.tax_rate)}%)
-                </span>
-                <span>{formatMoney(Number(quote.tax_amount), currency)}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Total</span>
-                <span>{formatMoney(Number(quote.total) + Number(quote.tax_amount), currency)}</span>
-              </div>
-            </div>
+            )}
 
             {!quoteFrozen && (
               <div className="flex items-end gap-6">
@@ -207,32 +205,34 @@ export default function QuotePanel({
                   </button>
                 </form>
 
-                <form
-                  action={updateQuoteTaxRate.bind(null, quote.id, jobId)}
-                  className="flex items-end gap-3"
-                >
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="tax_rate" className="text-xs font-medium">
-                      {taxLabel} rate %
-                    </label>
-                    <input
-                      id="tax_rate"
-                      name="tax_rate"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      defaultValue={quote.tax_rate}
-                      className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+                {gstRegistered && (
+                  <form
+                    action={updateQuoteTaxRate.bind(null, quote.id, jobId)}
+                    className="flex items-end gap-3"
                   >
-                    Update
-                  </button>
-                </form>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="tax_rate" className="text-xs font-medium">
+                        {taxLabel} rate %
+                      </label>
+                      <input
+                        id="tax_rate"
+                        name="tax_rate"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        defaultValue={quote.tax_rate}
+                        className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+                    >
+                      Update
+                    </button>
+                  </form>
+                )}
               </div>
             )}
 

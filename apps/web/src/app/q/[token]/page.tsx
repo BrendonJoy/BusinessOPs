@@ -18,6 +18,7 @@ type QuotePublicData = {
     address: string | null
     currency: string
     tax_label: string
+    gst_registered: boolean
   }
 }
 
@@ -39,6 +40,7 @@ export default async function PublicQuotePage({
 
   const { quote, line_items, job, customer, company } = result
   const companyName = company.name?.trim() || 'Trade Assist'
+  const grandTotal = Number(quote.total) + (company.gst_registered ? Number(quote.tax_amount) : 0)
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-16">
@@ -57,7 +59,9 @@ export default async function PublicQuotePage({
         <h1 className="text-xl font-semibold">{customer.name ?? 'Customer'}</h1>
         {job.address_line && <p className="text-sm text-muted">{job.address_line}</p>}
         {company.address && <p className="mt-2 text-xs text-muted">{company.address}</p>}
-        {company.gst_number && <p className="text-xs text-muted">GST/Tax number: {company.gst_number}</p>}
+        {company.gst_registered && company.gst_number && (
+          <p className="text-xs text-muted">GST/Tax number: {company.gst_number}</p>
+        )}
 
         {actionError && (
           <p className="mt-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
@@ -87,19 +91,23 @@ export default async function PublicQuotePage({
         )}
 
         <div className="mt-4 flex flex-col items-end gap-1 text-sm">
-          <div className="flex gap-6">
-            <span className="text-muted">Subtotal</span>
-            <span>{formatMoney(Number(quote.total), company.currency)}</span>
-          </div>
-          <div className="flex gap-6">
-            <span className="text-muted">
-              {company.tax_label} ({Number(quote.tax_rate)}%)
-            </span>
-            <span>{formatMoney(Number(quote.tax_amount), company.currency)}</span>
-          </div>
+          {company.gst_registered && (
+            <>
+              <div className="flex gap-6">
+                <span className="text-muted">Subtotal</span>
+                <span>{formatMoney(Number(quote.total), company.currency)}</span>
+              </div>
+              <div className="flex gap-6">
+                <span className="text-muted">
+                  {company.tax_label} ({Number(quote.tax_rate)}%)
+                </span>
+                <span>{formatMoney(Number(quote.tax_amount), company.currency)}</span>
+              </div>
+            </>
+          )}
           <div className="flex gap-6 text-lg font-semibold">
             <span>Total</span>
-            <span>{formatMoney(Number(quote.total) + Number(quote.tax_amount), company.currency)}</span>
+            <span>{formatMoney(grandTotal, company.currency)}</span>
           </div>
         </div>
 

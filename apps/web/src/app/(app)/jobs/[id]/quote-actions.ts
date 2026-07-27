@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { logJobAudit } from '@/lib/audit'
 
 function errorRedirect(jobId: string, message: string): never {
   redirect(`/jobs/${jobId}?error=${encodeURIComponent(message)}`)
@@ -12,6 +13,7 @@ export async function createQuote(jobId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('quotes').insert({ job_id: jobId })
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Quote created')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -31,6 +33,8 @@ export async function addQuoteLineItem(quoteId: string, jobId: string, formData:
   })
 
   if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, `Added quote line item: ${description}`)
 
   revalidatePath(`/jobs/${jobId}`)
 }
@@ -54,6 +58,8 @@ export async function addQuoteLineItemsBulk(
 
   if (error) errorRedirect(jobId, error.message)
 
+  await logJobAudit(supabase, jobId, `Added ${items.length} quote line item${items.length === 1 ? '' : 's'} via AI assistant`)
+
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -61,6 +67,7 @@ export async function deleteQuoteLineItem(itemId: string, jobId: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('quote_line_items').delete().eq('id', itemId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Removed quote line item')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -72,6 +79,7 @@ export async function markQuoteSent(quoteId: string, jobId: string) {
     .eq('id', quoteId)
     .eq('status', 'draft')
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, 'Quote sent to customer')
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -83,6 +91,7 @@ export async function updateQuoteDeposit(quoteId: string, jobId: string, formDat
     .update({ deposit_percent: depositPercent })
     .eq('id', quoteId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, `Quote deposit updated to ${depositPercent}%`)
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -91,6 +100,7 @@ export async function updateQuoteTaxRate(quoteId: string, jobId: string, formDat
   const supabase = await createClient()
   const { error } = await supabase.from('quotes').update({ tax_rate: taxRate }).eq('id', quoteId)
   if (error) errorRedirect(jobId, error.message)
+  await logJobAudit(supabase, jobId, `Quote tax rate updated to ${taxRate}%`)
   revalidatePath(`/jobs/${jobId}`)
 }
 
@@ -103,6 +113,8 @@ export async function createQuoteVersion(quoteId: string, jobId: string) {
     p_quote_id: quoteId,
   })
   if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, 'Quote edited (new version created)')
 
   revalidatePath(`/jobs/${jobId}`)
   redirect(`/jobs/${jobId}?openQuote=${newQuoteId}`)

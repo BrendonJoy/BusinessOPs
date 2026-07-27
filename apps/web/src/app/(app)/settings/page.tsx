@@ -103,6 +103,18 @@ export default async function SettingsPage({
               className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="gst_registered"
+              name="gst_registered"
+              type="checkbox"
+              defaultChecked={company?.gst_registered ?? true}
+              className="h-4 w-4 rounded border-surface-border"
+            />
+            <label htmlFor="gst_registered" className="text-sm font-medium">
+              GST / tax registered
+            </label>
+          </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="currency" className="text-sm font-medium">
               Currency
@@ -149,6 +161,19 @@ export default async function SettingsPage({
                 className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="payment_details" className="text-sm font-medium">
+              Payment details
+            </label>
+            <textarea
+              id="payment_details"
+              name="payment_details"
+              rows={3}
+              placeholder="Bank name, account name, account number/IBAN, etc. — shown on every invoice."
+              defaultValue={company?.payment_details ?? ''}
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
           </div>
           <button
             type="submit"

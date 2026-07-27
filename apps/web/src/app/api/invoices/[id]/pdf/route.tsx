@@ -20,6 +20,8 @@ type PdfCompany = {
   logo_url: string | null
   currency: string
   tax_label: string
+  gst_registered: boolean
+  payment_details: string | null
 }
 
 const styles = StyleSheet.create({
@@ -69,7 +71,9 @@ function InvoiceDocument({
           {company.logo_url && <Image src={company.logo_url} style={styles.logo} />}
           <Text style={styles.companyName}>{company.name}</Text>
           {company.address && <Text style={styles.muted}>{company.address}</Text>}
-          {company.gst_number && <Text style={styles.muted}>GST/Tax number: {company.gst_number}</Text>}
+          {company.gst_registered && company.gst_number && (
+            <Text style={styles.muted}>GST/Tax number: {company.gst_number}</Text>
+          )}
           <Text style={styles.muted}>Invoice for {invoice.jobs.job_number ?? 'job'}</Text>
         </View>
 
@@ -103,22 +107,38 @@ function InvoiceDocument({
           ))}
         </View>
 
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>{formatMoney(Number(invoice.total), company.currency)}</Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>
-            {company.tax_label} ({Number(invoice.tax_rate)}%)
-          </Text>
-          <Text style={styles.totalValue}>{formatMoney(Number(invoice.tax_amount), company.currency)}</Text>
-        </View>
+        {company.gst_registered && (
+          <>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{formatMoney(Number(invoice.total), company.currency)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>
+                {company.tax_label} ({Number(invoice.tax_rate)}%)
+              </Text>
+              <Text style={styles.totalValue}>
+                {formatMoney(Number(invoice.tax_amount), company.currency)}
+              </Text>
+            </View>
+          </>
+        )}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>
-            {formatMoney(Number(invoice.total) + Number(invoice.tax_amount), company.currency)}
+            {formatMoney(
+              Number(invoice.total) + (company.gst_registered ? Number(invoice.tax_amount) : 0),
+              company.currency
+            )}
           </Text>
         </View>
+
+        {company.payment_details && (
+          <View style={[styles.section, { marginTop: 24 }]}>
+            <Text style={styles.heading}>Payment details</Text>
+            <Text style={styles.muted}>{company.payment_details}</Text>
+          </View>
+        )}
       </Page>
     </Document>
   )
@@ -142,7 +162,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: company } = await supabase
     .from('companies')
-    .select('name, gst_number, address, logo_url, currency, tax_label')
+    .select('name, gst_number, address, logo_url, currency, tax_label, gst_registered, payment_details')
     .eq('id', invoice.jobs.company_id)
     .maybeSingle()
 
@@ -153,6 +173,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     logo_url: company?.logo_url ?? null,
     currency: company?.currency ?? 'USD',
     tax_label: company?.tax_label ?? 'Tax',
+    gst_registered: company?.gst_registered ?? true,
+    payment_details: company?.payment_details ?? null,
   }
 
   const buffer = await renderToBuffer(<InvoiceDocument company={pdfCompany} invoice={invoice} />)

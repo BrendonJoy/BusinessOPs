@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { logJobAudit } from '@/lib/audit'
 import { parseReceipt, type ReceiptMediaType } from './ai-receipt-actions'
 
 function errorRedirect(message: string): never {
@@ -90,6 +91,8 @@ export async function assignExpenseToJob(expenseId: string, formData: FormData) 
     .eq('id', expenseId)
 
   if (updateError) errorRedirect(updateError.message)
+
+  await logJobAudit(supabase, jobId, `Expense assigned as cost: ${description}`)
 
   revalidatePath('/expenses')
   revalidatePath(`/jobs/${jobId}`)
