@@ -18,12 +18,24 @@ export async function updateJob(jobId: string, formData: FormData) {
   const notes = String(formData.get('notes') ?? '').trim() || null
   const startDate = String(formData.get('start_date') ?? '') || null
   const finishDate = String(formData.get('finish_date') ?? '') || null
+  const geoLatRaw = String(formData.get('geo_lat') ?? '')
+  const geoLngRaw = String(formData.get('geo_lng') ?? '')
+  const geoLat = geoLatRaw ? Number(geoLatRaw) : null
+  const geoLng = geoLngRaw ? Number(geoLngRaw) : null
 
   const { data: before } = await supabase.from('jobs').select('status').eq('id', jobId).maybeSingle()
 
   const { error } = await supabase
     .from('jobs')
-    .update({ status, address_line: addressLine, notes, start_date: startDate, finish_date: finishDate })
+    .update({
+      status,
+      address_line: addressLine,
+      notes,
+      start_date: startDate,
+      finish_date: finishDate,
+      geo_lat: geoLat,
+      geo_lng: geoLng,
+    })
     .eq('id', jobId)
 
   if (error) errorRedirect(jobId, error.message)

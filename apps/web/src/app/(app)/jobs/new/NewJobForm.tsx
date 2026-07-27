@@ -2,6 +2,7 @@
 
 import { useRef, useState, useSyncExternalStore } from 'react'
 import { parseJobDescription } from './ai-actions'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 function subscribeNoop() {
   return () => {}
@@ -256,13 +257,13 @@ export default function NewJobForm({
           <label htmlFor="address_line" className="text-sm font-medium">
             Job address
           </label>
-          <input
+          <AddressAutocomplete
+            key={form.addressLine}
             id="address_line"
             name="address_line"
-            type="text"
-            value={form.addressLine}
-            onChange={(e) => updateField('addressLine', e.target.value)}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            geoLatName="geo_lat"
+            geoLngName="geo_lng"
+            defaultValue={form.addressLine}
           />
         </div>
 

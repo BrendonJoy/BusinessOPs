@@ -9,6 +9,7 @@ import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, upl
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
 import DeleteJobButton from './DeleteJobButton'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 type AuditEntry = {
   id: string
@@ -156,15 +157,33 @@ export default async function JobDetailPage({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="address_line" className="text-sm font-medium">
-              Job address
-            </label>
-            <input
+            <div className="flex items-center justify-between">
+              <label htmlFor="address_line" className="text-sm font-medium">
+                Job address
+              </label>
+              {(job.address_line || (job.geo_lat && job.geo_lng)) && (
+                <a
+                  href={
+                    job.geo_lat && job.geo_lng
+                      ? `https://www.google.com/maps/search/?api=1&query=${job.geo_lat},${job.geo_lng}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address_line ?? '')}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-accent hover:opacity-80"
+                >
+                  Open in Google Maps
+                </a>
+              )}
+            </div>
+            <AddressAutocomplete
               id="address_line"
               name="address_line"
-              type="text"
+              geoLatName="geo_lat"
+              geoLngName="geo_lng"
               defaultValue={job.address_line ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              defaultLat={job.geo_lat}
+              defaultLng={job.geo_lng}
             />
           </div>
 
