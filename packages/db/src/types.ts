@@ -155,6 +155,19 @@ export interface FeedbackMessage {
   created_at: string
 }
 
+export type FeedbackUrgentItem = {
+  message_id: string
+  reason: string
+}
+
+export interface FeedbackDigest {
+  id: string
+  generated_at: string
+  message_count: number
+  summary: string
+  urgent_items: FeedbackUrgentItem[]
+}
+
 export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
   idea: 'Idea',
   support: 'Support',
