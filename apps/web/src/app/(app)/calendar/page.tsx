@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCalendarGridDays, getMonthInfo } from '@/lib/calendar'
 import type { JobWithCustomer } from '@/lib/jobs'
 import CalendarGrid from './CalendarGrid'
+import RoutePlanner from './RoutePlanner'
 
 export default async function CalendarPage({
   searchParams,
@@ -54,6 +55,8 @@ export default async function CalendarPage({
           </Link>
         </div>
       </div>
+
+      <RoutePlanner />
 
       <CalendarGrid
         gridDays={gridDays}

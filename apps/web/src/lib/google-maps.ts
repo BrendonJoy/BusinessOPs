@@ -59,6 +59,29 @@ export async function getPlaceDetails(
   }
 }
 
+/** NxN matrix of travel time in seconds between the given points, or null if unavailable. */
+export async function getDistanceMatrix(
+  points: { lat: number; lng: number }[]
+): Promise<number[][] | null> {
+  if (!API_KEY || points.length < 2) return null
+
+  const locations = points.map((p) => `${p.lat},${p.lng}`).join('|')
+  const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json')
+  url.searchParams.set('origins', locations)
+  url.searchParams.set('destinations', locations)
+  url.searchParams.set('key', API_KEY)
+
+  const res = await fetch(url)
+  if (!res.ok) return null
+
+  const data = await res.json()
+  if (data.status !== 'OK') return null
+
+  return data.rows.map((row: { elements: { status: string; duration?: { value: number } }[] }) =>
+    row.elements.map((el) => (el.status === 'OK' && el.duration ? el.duration.value : Infinity))
+  )
+}
+
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   if (!API_KEY || !address.trim()) return null
 
