@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
+import { generateInvoicePdf } from '@/lib/invoice-pdf'
+import { sendInvoiceEmail } from '@/lib/email'
+import { formatMoney } from '@/lib/money'
 
 function errorRedirect(jobId: string, message: string): never {
   redirect(`/jobs/${jobId}?error=${encodeURIComponent(message)}`)
@@ -20,6 +23,27 @@ export async function updateInvoiceStatus(invoiceId: string, jobId: string, form
   const { error } = await supabase.from('invoices').update(updates).eq('id', invoiceId)
   if (error) errorRedirect(jobId, error.message)
   await logJobAudit(supabase, jobId, `Invoice status changed to ${status}`)
+
+  if (status === 'sent' && process.env.RESEND_API_KEY) {
+    const pdf = await generateInvoicePdf(invoiceId)
+    if (pdf?.customerEmail) {
+      const result = await sendInvoiceEmail({
+        to: pdf.customerEmail,
+        customerName: pdf.customerName,
+        companyName: pdf.companyName,
+        jobNumber: pdf.jobNumber,
+        total: formatMoney(pdf.total, pdf.currency),
+        pdfBuffer: pdf.buffer,
+        pdfFilename: pdf.filename,
+      })
+      if (result.sent) {
+        await logJobAudit(supabase, jobId, `Invoice emailed to ${pdf.customerEmail}`)
+      } else if (result.reason === 'send_failed') {
+        await logJobAudit(supabase, jobId, 'Invoice email failed to send')
+      }
+    }
+  }
+
   revalidatePath(`/jobs/${jobId}`)
 }
 

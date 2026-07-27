@@ -4,6 +4,10 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
+import { getCompanyInfo } from '@/lib/company'
+import { formatMoney } from '@/lib/money'
+import { sendQuoteEmail } from '@/lib/email'
+import { getBaseUrl } from '@/lib/url'
 
 function errorRedirect(jobId: string, message: string): never {
   redirect(`/jobs/${jobId}?error=${encodeURIComponent(message)}`)
@@ -80,6 +84,45 @@ export async function markQuoteSent(quoteId: string, jobId: string) {
     .eq('status', 'draft')
   if (error) errorRedirect(jobId, error.message)
   await logJobAudit(supabase, jobId, 'Quote sent to customer')
+
+  if (!process.env.RESEND_API_KEY) {
+    revalidatePath(`/jobs/${jobId}`)
+    return
+  }
+
+  const { data: quote } = await supabase
+    .from('quotes')
+    .select('share_token, total, tax_amount')
+    .eq('id', quoteId)
+    .maybeSingle()
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('job_number, customer:customers(name, email)')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  const customer = job?.customer as unknown as { name: string; email: string | null } | null
+  const company = await getCompanyInfo(supabase)
+
+  if (quote?.share_token && customer?.email && company) {
+    const baseUrl = await getBaseUrl()
+    const grandTotal = Number(quote.total) + (company.gst_registered ? Number(quote.tax_amount) : 0)
+    const result = await sendQuoteEmail({
+      to: customer.email,
+      customerName: customer.name,
+      companyName: company.name,
+      jobNumber: job?.job_number ?? 'your job',
+      total: formatMoney(grandTotal, company.currency),
+      quoteUrl: `${baseUrl}/q/${quote.share_token}`,
+    })
+    if (result.sent) {
+      await logJobAudit(supabase, jobId, `Quote emailed to ${customer.email}`)
+    } else if (result.reason === 'send_failed') {
+      await logJobAudit(supabase, jobId, 'Quote email failed to send')
+    }
+  }
+
   revalidatePath(`/jobs/${jobId}`)
 }
 

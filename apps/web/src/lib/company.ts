@@ -16,3 +16,16 @@ export async function getCompanyCurrency(
 
   return company ?? { currency: 'USD', tax_label: 'Tax', default_tax_rate: 0 }
 }
+
+export async function getCompanyInfo(
+  supabase: SupabaseClient
+): Promise<{ name: string; currency: string; gst_registered: boolean } | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('company:companies(name, currency, gst_registered)')
+    .single()
+
+  return (
+    (data?.company as unknown as { name: string; currency: string; gst_registered: boolean } | null) ?? null
+  )
+}
