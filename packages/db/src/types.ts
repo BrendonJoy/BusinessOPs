@@ -50,6 +50,8 @@ export interface Job {
   notes: string | null
   start_date: string | null
   finish_date: string | null
+  start_time: string | null
+  finish_time: string | null
   created_at: string
   updated_at: string
 }

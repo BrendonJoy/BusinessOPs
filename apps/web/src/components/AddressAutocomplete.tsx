@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Suggestion = { placeId: string; description: string }
+type ValueChange = { address: string; lat: number | null; lng: number | null }
 
 export default function AddressAutocomplete({
   id,
@@ -13,15 +14,17 @@ export default function AddressAutocomplete({
   defaultLat,
   defaultLng,
   className,
+  onValueChange,
 }: {
   id?: string
   name: string
-  geoLatName: string
-  geoLngName: string
+  geoLatName?: string
+  geoLngName?: string
   defaultValue?: string
   defaultLat?: number | null
   defaultLng?: number | null
   className?: string
+  onValueChange?: (value: ValueChange) => void
 }) {
   const [text, setText] = useState(defaultValue ?? '')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -46,6 +49,7 @@ export default function AddressAutocomplete({
     setText(value)
     setLat(null)
     setLng(null)
+    onValueChange?.({ address: value, lat: null, lng: null })
 
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
@@ -78,6 +82,7 @@ export default function AddressAutocomplete({
       setText(details.formattedAddress)
       setLat(details.lat)
       setLng(details.lng)
+      onValueChange?.({ address: details.formattedAddress, lat: details.lat, lng: details.lng })
     }
 
     sessionTokenRef.current = crypto.randomUUID()
@@ -98,8 +103,8 @@ export default function AddressAutocomplete({
           'w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none'
         }
       />
-      <input type="hidden" name={geoLatName} value={lat ?? ''} />
-      <input type="hidden" name={geoLngName} value={lng ?? ''} />
+      {geoLatName && <input type="hidden" name={geoLatName} value={lat ?? ''} />}
+      {geoLngName && <input type="hidden" name={geoLngName} value={lng ?? ''} />}
 
       {isOpen && suggestions.length > 0 && (
         <ul className="absolute z-10 mt-1 w-full rounded-md border border-surface-border bg-background shadow-lg">

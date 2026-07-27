@@ -23,7 +23,9 @@ type FormValues = {
   customerAddress: string
   addressLine: string
   startDate: string
+  startTime: string
   finishDate: string
+  finishTime: string
   notes: string
 }
 
@@ -34,7 +36,9 @@ const EMPTY_FORM: FormValues = {
   customerAddress: '',
   addressLine: '',
   startDate: '',
+  startTime: '',
   finishDate: '',
+  finishTime: '',
   notes: '',
 }
 
@@ -53,6 +57,9 @@ export default function NewJobForm({
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isListening, setIsListening] = useState(false)
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
+  const [sameAsCustomerAddress, setSameAsCustomerAddress] = useState(false)
+  const [jobGeo, setJobGeo] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null })
+  const [isGeocoding, setIsGeocoding] = useState(false)
   const speechSupported = useSyncExternalStore(
     subscribeNoop,
     getSpeechSupportSnapshot,
@@ -63,6 +70,21 @@ export default function NewJobForm({
 
   function updateField<K extends keyof FormValues>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function toggleSameAsCustomerAddress(checked: boolean) {
+    setSameAsCustomerAddress(checked)
+    if (!checked || !form.customerAddress.trim()) return
+
+    setIsGeocoding(true)
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(form.customerAddress)}`)
+    if (res.ok) {
+      const data = await res.json()
+      setJobGeo({ lat: data.lat, lng: data.lng })
+    } else {
+      setJobGeo({ lat: null, lng: null })
+    }
+    setIsGeocoding(false)
   }
 
   function toggleListening() {
@@ -115,7 +137,9 @@ export default function NewJobForm({
       customerAddress: prev.customerAddress,
       addressLine: data.address_line ?? prev.addressLine,
       startDate: data.start_date ?? prev.startDate,
+      startTime: data.start_time ?? prev.startTime,
       finishDate: data.finish_date ?? prev.finishDate,
+      finishTime: data.finish_time ?? prev.finishTime,
       notes: data.notes ?? prev.notes,
     }))
 
@@ -242,13 +266,11 @@ export default function NewJobForm({
             <label htmlFor="customer_address" className="text-sm font-medium">
               Customer address
             </label>
-            <input
+            <AddressAutocomplete
               id="customer_address"
               name="customer_address"
-              type="text"
-              value={form.customerAddress}
-              onChange={(e) => updateField('customerAddress', e.target.value)}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              defaultValue={form.customerAddress}
+              onValueChange={(v) => updateField('customerAddress', v.address)}
             />
           </div>
         </fieldset>
@@ -257,14 +279,37 @@ export default function NewJobForm({
           <label htmlFor="address_line" className="text-sm font-medium">
             Job address
           </label>
-          <AddressAutocomplete
-            key={form.addressLine}
-            id="address_line"
-            name="address_line"
-            geoLatName="geo_lat"
-            geoLngName="geo_lng"
-            defaultValue={form.addressLine}
-          />
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={sameAsCustomerAddress}
+              onChange={(e) => toggleSameAsCustomerAddress(e.target.checked)}
+              disabled={!form.customerAddress.trim()}
+            />
+            Same as customer address
+          </label>
+          {sameAsCustomerAddress ? (
+            <>
+              <input
+                type="text"
+                readOnly
+                value={isGeocoding ? 'Locating…' : form.customerAddress}
+                className="w-full rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted"
+              />
+              <input type="hidden" name="address_line" value={form.customerAddress} />
+              <input type="hidden" name="geo_lat" value={jobGeo.lat ?? ''} />
+              <input type="hidden" name="geo_lng" value={jobGeo.lng ?? ''} />
+            </>
+          ) : (
+            <AddressAutocomplete
+              key={form.addressLine}
+              id="address_line"
+              name="address_line"
+              geoLatName="geo_lat"
+              geoLngName="geo_lng"
+              defaultValue={form.addressLine}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -272,27 +317,47 @@ export default function NewJobForm({
             <label htmlFor="start_date" className="text-sm font-medium">
               Start date
             </label>
-            <input
-              id="start_date"
-              name="start_date"
-              type="date"
-              value={form.startDate}
-              onChange={(e) => updateField('startDate', e.target.value)}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
+            <div className="flex gap-2">
+              <input
+                id="start_date"
+                name="start_date"
+                type="date"
+                value={form.startDate}
+                onChange={(e) => updateField('startDate', e.target.value)}
+                className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+              <input
+                id="start_time"
+                name="start_time"
+                type="time"
+                value={form.startTime}
+                onChange={(e) => updateField('startTime', e.target.value)}
+                className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="finish_date" className="text-sm font-medium">
               Finish date
             </label>
-            <input
-              id="finish_date"
-              name="finish_date"
-              type="date"
-              value={form.finishDate}
-              onChange={(e) => updateField('finishDate', e.target.value)}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
+            <div className="flex gap-2">
+              <input
+                id="finish_date"
+                name="finish_date"
+                type="date"
+                value={form.finishDate}
+                onChange={(e) => updateField('finishDate', e.target.value)}
+                className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+              <input
+                id="finish_time"
+                name="finish_time"
+                type="time"
+                value={form.finishTime}
+                onChange={(e) => updateField('finishTime', e.target.value)}
+                className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 

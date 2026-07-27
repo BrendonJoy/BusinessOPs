@@ -12,7 +12,9 @@ export async function createJob(formData: FormData) {
   const addressLine = String(formData.get('address_line') ?? '').trim() || null
   const notes = String(formData.get('notes') ?? '').trim() || null
   const startDate = String(formData.get('start_date') ?? '') || null
+  const startTime = String(formData.get('start_time') ?? '') || null
   const finishDate = String(formData.get('finish_date') ?? '') || null
+  const finishTime = String(formData.get('finish_time') ?? '') || null
   const geoLatRaw = String(formData.get('geo_lat') ?? '')
   const geoLngRaw = String(formData.get('geo_lng') ?? '')
   const geoLat = geoLatRaw ? Number(geoLatRaw) : null
@@ -68,7 +70,9 @@ export async function createJob(formData: FormData) {
       address_line: addressLine,
       notes,
       start_date: startDate,
+      start_time: startTime,
       finish_date: finishDate,
+      finish_time: finishTime,
       geo_lat: geoLat,
       geo_lng: geoLng,
     })

@@ -9,7 +9,7 @@ import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, upl
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
 import DeleteJobButton from './DeleteJobButton'
-import AddressAutocomplete from '@/components/AddressAutocomplete'
+import JobAddressField from '@/components/JobAddressField'
 
 type AuditEntry = {
   id: string
@@ -156,61 +156,55 @@ export default async function JobDetailPage({
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label htmlFor="address_line" className="text-sm font-medium">
-                Job address
-              </label>
-              {(job.address_line || (job.geo_lat && job.geo_lng)) && (
-                <a
-                  href={
-                    job.geo_lat && job.geo_lng
-                      ? `https://www.google.com/maps/search/?api=1&query=${job.geo_lat},${job.geo_lng}`
-                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address_line ?? '')}`
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-accent hover:opacity-80"
-                >
-                  Open in Google Maps
-                </a>
-              )}
-            </div>
-            <AddressAutocomplete
-              id="address_line"
-              name="address_line"
-              geoLatName="geo_lat"
-              geoLngName="geo_lng"
-              defaultValue={job.address_line ?? ''}
-              defaultLat={job.geo_lat}
-              defaultLng={job.geo_lng}
-            />
-          </div>
+          <JobAddressField
+            defaultValue={job.address_line ?? ''}
+            defaultLat={job.geo_lat}
+            defaultLng={job.geo_lng}
+            customerAddress={job.customer?.address ?? null}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <label htmlFor="start_date" className="text-sm font-medium">
                 Start date
               </label>
-              <input
-                id="start_date"
-                name="start_date"
-                type="date"
-                defaultValue={job.start_date ?? ''}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="start_date"
+                  name="start_date"
+                  type="date"
+                  defaultValue={job.start_date ?? ''}
+                  className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+                <input
+                  id="start_time"
+                  name="start_time"
+                  type="time"
+                  defaultValue={job.start_time ?? ''}
+                  className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="finish_date" className="text-sm font-medium">
                 Finish date
               </label>
-              <input
-                id="finish_date"
-                name="finish_date"
-                type="date"
-                defaultValue={job.finish_date ?? ''}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="finish_date"
+                  name="finish_date"
+                  type="date"
+                  defaultValue={job.finish_date ?? ''}
+                  className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+                <input
+                  id="finish_time"
+                  name="finish_time"
+                  type="time"
+                  defaultValue={job.finish_time ?? ''}
+                  className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

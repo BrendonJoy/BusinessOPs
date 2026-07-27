@@ -8,7 +8,9 @@ export type ParsedJobDraft = {
   customer_email: string | null
   address_line: string | null
   start_date: string | null
+  start_time: string | null
   finish_date: string | null
+  finish_time: string | null
   notes: string | null
 }
 
@@ -30,7 +32,7 @@ export async function parseJobDescription(
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
-      system: `You extract structured job-booking details from a tradesperson's free-text note dictated in the field. Today's date is ${today}. Resolve relative dates ("tomorrow", "next Tuesday") to actual dates in YYYY-MM-DD format. If a specific time of day is mentioned (e.g. "3pm"), include it in notes since there is no separate time field. Leave any field as an empty string if it isn't mentioned in the text. Do not invent details that aren't present.`,
+      system: `You extract structured job-booking details from a tradesperson's free-text note dictated in the field. Today's date is ${today}. Resolve relative dates ("tomorrow", "next Tuesday") to actual dates in YYYY-MM-DD format. If a specific time of day is mentioned (e.g. "3pm", "can do 3pm"), resolve it to 24-hour HH:MM format as start_time. Only fill finish_time if an end time or duration is explicitly given. Leave any field as an empty string if it isn't mentioned in the text. Do not invent details that aren't present.`,
       tools: [
         {
           name: 'extract_job',
@@ -43,11 +45,15 @@ export async function parseJobDescription(
               customer_email: { type: 'string', description: 'Customer email, or empty string.' },
               address_line: { type: 'string', description: 'Job address, or empty string.' },
               start_date: { type: 'string', description: 'Resolved start date as YYYY-MM-DD, or empty string.' },
+              start_time: { type: 'string', description: 'Resolved start time as 24-hour HH:MM, or empty string.' },
               finish_date: { type: 'string', description: 'Resolved finish date as YYYY-MM-DD, or empty string.' },
+              finish_time: {
+                type: 'string',
+                description: 'Resolved finish time as 24-hour HH:MM, or empty string.',
+              },
               notes: {
                 type: 'string',
-                description:
-                  'Any remaining relevant detail: job description, time of day, special instructions, or empty string.',
+                description: 'Any remaining relevant detail: job description, special instructions, or empty string.',
               },
             },
             required: [
@@ -56,7 +62,9 @@ export async function parseJobDescription(
               'customer_email',
               'address_line',
               'start_date',
+              'start_time',
               'finish_date',
+              'finish_time',
               'notes',
             ],
           },
@@ -87,7 +95,9 @@ export async function parseJobDescription(
         customer_email: clean(raw.customer_email),
         address_line: clean(raw.address_line),
         start_date: clean(raw.start_date),
+        start_time: clean(raw.start_time),
         finish_date: clean(raw.finish_date),
+        finish_time: clean(raw.finish_time),
         notes: clean(raw.notes),
       },
     }
