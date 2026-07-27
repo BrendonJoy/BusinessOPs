@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import { signOut } from '@/lib/auth/actions'
+import { createClient } from '@/lib/supabase/server'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const isAdmin = await isPlatformAdmin(supabase)
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-surface-border bg-background">
@@ -26,6 +31,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link href="/settings" className="font-medium hover:text-accent">
               Settings
             </Link>
+            <Link href="/feedback" className="font-medium hover:text-accent">
+              Feedback
+            </Link>
+            {isAdmin && (
+              <Link href="/admin/feedback" className="font-medium text-accent hover:opacity-80">
+                Admin
+              </Link>
+            )}
             <form action={signOut}>
               <button type="submit" className="text-muted hover:text-accent">
                 Sign out

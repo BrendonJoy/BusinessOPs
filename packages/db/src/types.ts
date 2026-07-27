@@ -140,6 +140,33 @@ export interface Expense {
   created_at: string
 }
 
+export type FeedbackCategory = 'idea' | 'support'
+export type FeedbackStatus = 'new' | 'read' | 'resolved'
+
+export interface FeedbackMessage {
+  id: string
+  company_id: string
+  user_id: string | null
+  category: FeedbackCategory
+  message: string
+  ai_summary: string | null
+  status: FeedbackStatus
+  created_at: string
+}
+
+export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
+  idea: 'Idea',
+  support: 'Support',
+}
+
+export const FEEDBACK_STATUSES: FeedbackStatus[] = ['new', 'read', 'resolved']
+
+export const FEEDBACK_STATUS_LABELS: Record<FeedbackStatus, string> = {
+  new: 'New',
+  read: 'Read',
+  resolved: 'Resolved',
+}
+
 export const JOB_STATUSES: JobStatus[] = [
   'quoted',
   'scheduled',
