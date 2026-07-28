@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
+import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import type { Quote, QuoteLineItem } from '@trade-assist/db'
 import { respondToQuote } from './actions'
 
@@ -67,28 +68,44 @@ export default async function PublicQuotePage({
           <p className="mt-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
         )}
 
-        {line_items.length > 0 && (
-          <table className="mt-6 w-full text-left text-sm">
-            <thead className="text-muted">
-              <tr>
-                <th className="py-1 font-medium">Description</th>
-                <th className="py-1 font-medium">Qty</th>
-                <th className="py-1 font-medium">Unit price</th>
-                <th className="py-1 font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {line_items.map((item) => (
-                <tr key={item.id} className="border-t border-surface-border">
-                  <td className="py-2">{item.description}</td>
-                  <td className="py-2">{item.quantity}</td>
-                  <td className="py-2">{formatMoney(Number(item.unit_price), company.currency)}</td>
-                  <td className="py-2">{formatMoney(Number(item.line_total), company.currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {LINE_ITEM_TYPES.map((type) => {
+          const items = line_items.filter((item) => item.item_type === type)
+          if (items.length === 0) return null
+
+          return (
+            <div key={type} className="mt-6">
+              <h3 className="mb-2 text-xs font-semibold text-muted">{LINE_ITEM_TYPE_LABELS[type]}</h3>
+              <table className="w-full text-left text-sm">
+                <thead className="text-muted">
+                  <tr>
+                    <th className="py-1 font-medium">Description</th>
+                    {type !== 'callout' && (
+                      <>
+                        <th className="py-1 font-medium">{type === 'labour' ? 'Hours' : 'Qty'}</th>
+                        <th className="py-1 font-medium">{type === 'labour' ? 'Rate' : 'Unit price'}</th>
+                      </>
+                    )}
+                    <th className="py-1 font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-surface-border">
+                      <td className="py-2">{item.description}</td>
+                      {type !== 'callout' && (
+                        <>
+                          <td className="py-2">{item.quantity}</td>
+                          <td className="py-2">{formatMoney(Number(item.unit_price), company.currency)}</td>
+                        </>
+                      )}
+                      <td className="py-2">{formatMoney(Number(item.line_total), company.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })}
 
         <div className="mt-4 flex flex-col items-end gap-1 text-sm">
           {company.gst_registered && (

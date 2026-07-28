@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
+import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import type { Invoice, InvoiceLineItem } from '@trade-assist/db'
 
 type InvoicePdfData = Invoice & {
@@ -52,6 +53,7 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
   totalLabel: { fontWeight: 'bold', marginRight: 12 },
   totalValue: { fontWeight: 'bold' },
+  groupHeading: { fontSize: 10, fontWeight: 'bold', color: '#6b7280', marginBottom: 4, marginTop: 8 },
 })
 
 function InvoiceDocument({
@@ -90,22 +92,38 @@ function InvoiceDocument({
           <Text style={styles.muted}>Date: {new Date(invoice.created_at).toLocaleDateString()}</Text>
         </View>
 
-        <View>
-          <View style={styles.tableHeader}>
-            <Text style={styles.colDescription}>Description</Text>
-            <Text style={styles.colQty}>Qty</Text>
-            <Text style={styles.colPrice}>Unit price</Text>
-            <Text style={styles.colTotal}>Total</Text>
-          </View>
-          {invoice.invoice_line_items.map((item) => (
-            <View key={item.id} style={styles.tableRow}>
-              <Text style={styles.colDescription}>{item.description}</Text>
-              <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colPrice}>{formatMoney(Number(item.unit_price), company.currency)}</Text>
-              <Text style={styles.colTotal}>{formatMoney(Number(item.line_total), company.currency)}</Text>
+        {LINE_ITEM_TYPES.map((type) => {
+          const items = invoice.invoice_line_items.filter((item) => item.item_type === type)
+          if (items.length === 0) return null
+
+          return (
+            <View key={type}>
+              <Text style={styles.groupHeading}>{LINE_ITEM_TYPE_LABELS[type]}</Text>
+              <View style={styles.tableHeader}>
+                <Text style={styles.colDescription}>Description</Text>
+                {type !== 'callout' && (
+                  <>
+                    <Text style={styles.colQty}>{type === 'labour' ? 'Hours' : 'Qty'}</Text>
+                    <Text style={styles.colPrice}>{type === 'labour' ? 'Rate' : 'Unit price'}</Text>
+                  </>
+                )}
+                <Text style={styles.colTotal}>Total</Text>
+              </View>
+              {items.map((item) => (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={styles.colDescription}>{item.description}</Text>
+                  {type !== 'callout' && (
+                    <>
+                      <Text style={styles.colQty}>{item.quantity}</Text>
+                      <Text style={styles.colPrice}>{formatMoney(Number(item.unit_price), company.currency)}</Text>
+                    </>
+                  )}
+                  <Text style={styles.colTotal}>{formatMoney(Number(item.line_total), company.currency)}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          )
+        })}
 
         {company.gst_registered && (
           <>

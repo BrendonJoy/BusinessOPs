@@ -21,32 +21,10 @@ export async function createQuote(jobId: string) {
   revalidatePath(`/jobs/${jobId}`)
 }
 
-export async function addQuoteLineItem(quoteId: string, jobId: string, formData: FormData) {
-  const description = String(formData.get('description') ?? '').trim()
-  const quantity = Number(formData.get('quantity') ?? 0)
-  const unitPrice = Number(formData.get('unit_price') ?? 0)
-
-  if (!description) return
-
-  const supabase = await createClient()
-  const { error } = await supabase.from('quote_line_items').insert({
-    quote_id: quoteId,
-    description,
-    quantity,
-    unit_price: unitPrice,
-  })
-
-  if (error) errorRedirect(jobId, error.message)
-
-  await logJobAudit(supabase, jobId, `Added quote line item: ${description}`)
-
-  revalidatePath(`/jobs/${jobId}`)
-}
-
 export async function addQuoteLineItemsBulk(
   quoteId: string,
   jobId: string,
-  items: { description: string; quantity: number; unit_price: number }[]
+  items: { item_type: string; description: string; quantity: number; unit_price: number }[]
 ) {
   if (items.length === 0) return
 
@@ -54,6 +32,7 @@ export async function addQuoteLineItemsBulk(
   const { error } = await supabase.from('quote_line_items').insert(
     items.map((item) => ({
       quote_id: quoteId,
+      item_type: item.item_type,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unit_price,
@@ -62,7 +41,7 @@ export async function addQuoteLineItemsBulk(
 
   if (error) errorRedirect(jobId, error.message)
 
-  await logJobAudit(supabase, jobId, `Added ${items.length} quote line item${items.length === 1 ? '' : 's'} via AI assistant`)
+  await logJobAudit(supabase, jobId, `Added ${items.length} quote line item${items.length === 1 ? '' : 's'}`)
 
   revalidatePath(`/jobs/${jobId}`)
 }

@@ -1,12 +1,16 @@
 'use server'
 
 import Anthropic from '@anthropic-ai/sdk'
+import type { LineItemType } from '@trade-assist/db'
 
 export type ParsedLineItem = {
   description: string
   quantity: number
   unit_price: number
+  item_type: LineItemType
 }
+
+const VALID_TYPES: LineItemType[] = ['labour', 'material', 'callout', 'other']
 
 export async function parseLineItems(
   text: string
@@ -26,7 +30,7 @@ export async function parseLineItems(
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system:
-        "You extract billable line items (materials, labour, fees) from a tradesperson's free-text note dictated in the field. Each item needs a short description, a quantity (hours for labour, otherwise usually 1), and a unit price in dollars. If a dollar amount isn't stated for an item, set unit_price to 0 rather than guessing -- never invent a price. Split distinct items apart rather than merging them into one line.",
+        "You extract billable line items (materials, labour, fees) from a tradesperson's free-text note dictated in the field. Each item needs a short description, a quantity (hours for labour, otherwise usually 1), a unit price in dollars, and a type: 'labour' for hourly work, 'material' for physical materials/parts, 'callout' for a flat call-out or service fee, or 'other' if it doesn't clearly fit those. If a dollar amount isn't stated for an item, set unit_price to 0 rather than guessing -- never invent a price. Split distinct items apart rather than merging them into one line.",
       tools: [
         {
           name: 'extract_line_items',
@@ -45,8 +49,13 @@ export async function parseLineItems(
                       type: 'number',
                       description: 'Unit price in dollars. 0 if not stated -- never guess.',
                     },
+                    item_type: {
+                      type: 'string',
+                      enum: ['labour', 'material', 'callout', 'other'],
+                      description: 'Category of this item.',
+                    },
                   },
-                  required: ['description', 'quantity', 'unit_price'],
+                  required: ['description', 'quantity', 'unit_price', 'item_type'],
                 },
               },
             },
@@ -72,6 +81,9 @@ export async function parseLineItems(
         description: String(item.description ?? '').trim(),
         quantity: Number(item.quantity) || 1,
         unit_price: Number(item.unit_price) || 0,
+        item_type: (VALID_TYPES.includes(item.item_type as LineItemType)
+          ? item.item_type
+          : 'other') as LineItemType,
       }))
       .filter((item) => item.description)
 

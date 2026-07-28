@@ -93,6 +93,17 @@ export interface Quote {
   responded_at: string | null
 }
 
+export type LineItemType = 'labour' | 'material' | 'callout' | 'other'
+
+export const LINE_ITEM_TYPES: LineItemType[] = ['labour', 'material', 'callout', 'other']
+
+export const LINE_ITEM_TYPE_LABELS: Record<LineItemType, string> = {
+  labour: 'Labour',
+  material: 'Materials',
+  callout: 'Callout fee',
+  other: 'Other',
+}
+
 export interface QuoteLineItem {
   id: string
   quote_id: string
@@ -100,6 +111,7 @@ export interface QuoteLineItem {
   quantity: number
   unit_price: number
   line_total: number
+  item_type: LineItemType
   created_at: string
 }
 
@@ -125,6 +137,7 @@ export interface InvoiceLineItem {
   unit_price: number
   line_total: number
   source: 'material' | 'labour' | 'manual' | 'deposit'
+  item_type: LineItemType
   cost_entry_id: string | null
   created_at: string
 }

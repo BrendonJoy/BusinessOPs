@@ -64,33 +64,10 @@ export async function createInvoice(jobId: string) {
   revalidatePath(`/jobs/${jobId}`)
 }
 
-export async function addInvoiceLineItem(invoiceId: string, jobId: string, formData: FormData) {
-  const description = String(formData.get('description') ?? '').trim()
-  const quantity = Number(formData.get('quantity') ?? 0)
-  const unitPrice = Number(formData.get('unit_price') ?? 0)
-
-  if (!description) return
-
-  const supabase = await createClient()
-  const { error } = await supabase.from('invoice_line_items').insert({
-    invoice_id: invoiceId,
-    description,
-    quantity,
-    unit_price: unitPrice,
-    source: 'manual',
-  })
-
-  if (error) errorRedirect(jobId, error.message)
-
-  await logJobAudit(supabase, jobId, `Added invoice line item: ${description}`)
-
-  revalidatePath(`/jobs/${jobId}`)
-}
-
 export async function addInvoiceLineItemsBulk(
   invoiceId: string,
   jobId: string,
-  items: { description: string; quantity: number; unit_price: number }[]
+  items: { item_type: string; description: string; quantity: number; unit_price: number }[]
 ) {
   if (items.length === 0) return
 
@@ -98,16 +75,17 @@ export async function addInvoiceLineItemsBulk(
   const { error } = await supabase.from('invoice_line_items').insert(
     items.map((item) => ({
       invoice_id: invoiceId,
+      item_type: item.item_type,
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unit_price,
-      source: 'manual' as const,
+      source: item.item_type === 'labour' || item.item_type === 'material' ? item.item_type : 'manual',
     }))
   )
 
   if (error) errorRedirect(jobId, error.message)
 
-  await logJobAudit(supabase, jobId, `Added ${items.length} invoice line item${items.length === 1 ? '' : 's'} via AI assistant`)
+  await logJobAudit(supabase, jobId, `Added ${items.length} invoice line item${items.length === 1 ? '' : 's'}`)
 
   revalidatePath(`/jobs/${jobId}`)
 }
