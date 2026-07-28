@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
+import { getCompanyCurrency } from '@/lib/company'
 import { parseReceipt, type ReceiptMediaType } from './ai-receipt-actions'
 
 function errorRedirect(message: string): never {
@@ -71,15 +72,22 @@ export async function assignExpenseToJob(expenseId: string, formData: FormData) 
   const jobId = String(formData.get('job_id') ?? '')
   const type = String(formData.get('type') ?? 'material')
   const description = String(formData.get('description') ?? '').trim()
-  const amount = Number(formData.get('amount') ?? 0)
+  const amountPaid = Number(formData.get('amount') ?? 0)
+  const gstApplies = formData.get('gst_applies') === 'on'
 
   if (!jobId || !description) errorRedirect('Description and job are required to assign this expense.')
 
   const supabase = await createClient()
 
+  let unitCost = amountPaid
+  if (gstApplies) {
+    const { default_tax_rate } = await getCompanyCurrency(supabase)
+    unitCost = Math.round((amountPaid / (1 + default_tax_rate / 100)) * 100) / 100
+  }
+
   const { data: costEntry, error: costEntryError } = await supabase
     .from('cost_entries')
-    .insert({ job_id: jobId, type, description, quantity: 1, unit_cost: amount })
+    .insert({ job_id: jobId, type, description, quantity: 1, unit_cost: unitCost })
     .select('id')
     .single()
 

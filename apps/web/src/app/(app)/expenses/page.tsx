@@ -13,7 +13,7 @@ export default async function ExpensesPage({
 }) {
   const { error: actionError } = await searchParams
   const supabase = await createClient()
-  const { currency } = await getCompanyCurrency(supabase)
+  const { currency, tax_label, default_tax_rate } = await getCompanyCurrency(supabase)
 
   const { data: expensesData } = await supabase
     .from('expenses')
@@ -117,7 +117,7 @@ export default async function ExpensesPage({
                     </div>
                     <div className="flex flex-col gap-1">
                       <label htmlFor={`amount-${expense.id}`} className="text-xs font-medium">
-                        Amount
+                        Amount paid
                       </label>
                       <input
                         id={`amount-${expense.id}`}
@@ -127,6 +127,12 @@ export default async function ExpensesPage({
                         defaultValue={expense.amount}
                         className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                       />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium">
+                        <input type="checkbox" name="gst_applies" />
+                        {tax_label} applies ({default_tax_rate}%)
+                      </label>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label htmlFor={`type-${expense.id}`} className="text-xs font-medium">
