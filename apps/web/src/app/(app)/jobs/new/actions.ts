@@ -20,6 +20,7 @@ export async function createJob(formData: FormData) {
   const geoLngRaw = String(formData.get('geo_lng') ?? '')
   const geoLat = geoLatRaw ? Number(geoLatRaw) : null
   const geoLng = geoLngRaw ? Number(geoLngRaw) : null
+  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
 
   if (!customerName) {
     redirect(`/jobs/new?error=${encodeURIComponent('Customer name is required.')}`)
@@ -96,6 +97,7 @@ export async function createJob(formData: FormData) {
       finish_time: finishTime,
       geo_lat: geoLat,
       geo_lng: geoLng,
+      assigned_user_id: assignedUserId,
     })
     .select('id')
     .single()

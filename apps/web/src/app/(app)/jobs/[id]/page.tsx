@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { formatMoney } from '@/lib/money'
 import { formatAuditTimestamp } from '@/lib/audit'
+import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { Customer, CostEntry, Expense, Job, JobFile } from '@trade-assist/db'
 import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, uploadJobFile } from './actions'
@@ -26,6 +27,7 @@ type JobDetail = Job & {
   job_files: JobFile[]
   company: { currency: string; tax_label: string; gst_registered: boolean }
   job_audit_log: AuditEntry[]
+  assigned_profile: { full_name: string | null; email: string } | null
 }
 
 export default async function JobDetailPage({
@@ -42,7 +44,7 @@ export default async function JobDetailPage({
   const { data } = await supabase
     .from('jobs')
     .select(
-      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered), job_audit_log(id, action, created_at, profile:profiles(full_name))'
+      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered), job_audit_log(id, action, created_at, profile:profiles(full_name)), assigned_profile:profiles!jobs_assigned_user_id_fkey(full_name, email)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -50,6 +52,19 @@ export default async function JobDetailPage({
   const job = data as unknown as JobDetail | null
 
   if (!job) notFound()
+
+  const currentProfile = await getCurrentProfile(supabase)
+  const canManageAssignment = isCompanyAdmin(currentProfile?.role)
+
+  let teamOptions: { id: string; full_name: string | null; email: string }[] = []
+  if (canManageAssignment) {
+    const { data: team } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('company_id', job.company_id)
+      .order('full_name')
+    teamOptions = team ?? []
+  }
 
   const currency = job.company.currency
   const taxLabel = job.company.tax_label
@@ -223,6 +238,28 @@ export default async function JobDetailPage({
                 />
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Assigned to</label>
+            {canManageAssignment ? (
+              <select
+                name="assigned_user_id"
+                defaultValue={job.assigned_user_id ?? ''}
+                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              >
+                <option value="">Unassigned</option>
+                {teamOptions.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.full_name ?? member.email}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
+                {job.assigned_profile?.full_name ?? job.assigned_profile?.email ?? 'Unassigned'}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">

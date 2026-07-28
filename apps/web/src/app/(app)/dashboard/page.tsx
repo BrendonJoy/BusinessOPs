@@ -1,9 +1,11 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD } from '@/lib/calendar'
 import { formatAuditTimestamp } from '@/lib/audit'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency } from '@/lib/company'
+import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
 import { JOB_STATUS_GROUPS } from '@trade-assist/db'
 import type { Customer, CostEntry, Invoice, Quote, Job } from '@trade-assist/db'
 import StatDrilldown, { type DrilldownItem } from './StatDrilldown'
@@ -46,6 +48,9 @@ function getWeekRange(now: Date): { start: Date; end: Date } {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  const profile = await getCurrentProfile(supabase)
+  if (!profile || !isCompanyAdmin(profile.role)) redirect('/jobs')
+
   const now = new Date()
   const today = formatDateYMD(now)
   const { start: weekStart, end: weekEnd } = getWeekRange(now)

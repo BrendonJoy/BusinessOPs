@@ -24,7 +24,20 @@ export interface Profile {
   company_id: string
   full_name: string | null
   role: 'owner' | 'admin' | 'staff'
+  email: string
   created_at: string
+}
+
+export interface CompanyInvite {
+  id: string
+  company_id: string
+  email: string
+  role: 'admin' | 'staff'
+  token: string
+  invited_by: string | null
+  created_at: string
+  expires_at: string
+  accepted_at: string | null
 }
 
 export interface Customer {

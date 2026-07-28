@@ -39,6 +39,29 @@ export async function sendQuoteEmail(params: {
   return { sent: true }
 }
 
+export async function sendTeamInviteEmail(params: {
+  to: string
+  companyName: string
+  role: string
+  inviteUrl: string
+}): Promise<SendResult> {
+  const resend = getResendClient()
+  if (!resend) return { sent: false, reason: 'not_configured' }
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `You've been invited to join ${params.companyName} on BusinessOps`,
+    html: `
+      <p>You've been invited to join <strong>${params.companyName}</strong> on BusinessOps as a ${params.role}.</p>
+      <p><a href="${params.inviteUrl}">Accept the invite and set up your account</a></p>
+    `,
+  })
+
+  if (error) return { sent: false, reason: 'send_failed', message: error.message }
+  return { sent: true }
+}
+
 export async function sendInvoiceEmail(params: {
   to: string
   customerName: string

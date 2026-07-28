@@ -27,6 +27,12 @@ export async function updateJob(jobId: string, formData: FormData) {
 
   const { data: before } = await supabase.from('jobs').select('status').eq('id', jobId).maybeSingle()
 
+  // assigned_user_id is only ever present in the form for owner/admin (the
+  // assignment control is hidden entirely for staff) -- when the field is
+  // absent, leave the existing assignment untouched rather than clearing it.
+  const hasAssignedUserField = formData.has('assigned_user_id')
+  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
+
   const { error } = await supabase
     .from('jobs')
     .update({
@@ -39,6 +45,7 @@ export async function updateJob(jobId: string, formData: FormData) {
       finish_time: finishTime,
       geo_lat: geoLat,
       geo_lng: geoLng,
+      ...(hasAssignedUserField ? { assigned_user_id: assignedUserId } : {}),
     })
     .eq('id', jobId)
 

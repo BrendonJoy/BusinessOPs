@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
 import { createJob } from './actions'
 import NewJobForm from './NewJobForm'
 
@@ -9,10 +10,22 @@ export default async function NewJobPage({
 }) {
   const { error } = await searchParams
   const supabase = await createClient()
+  const profile = await getCurrentProfile(supabase)
+
   const { data: customers } = await supabase
     .from('customers')
     .select('id, name, email, phone, address')
     .order('name')
+
+  let teamOptions: { id: string; full_name: string | null; email: string }[] = []
+  if (profile && isCompanyAdmin(profile.role)) {
+    const { data: team } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('company_id', profile.company_id)
+      .order('full_name')
+    teamOptions = team ?? []
+  }
 
   return (
     <div className="max-w-xl">
@@ -22,7 +35,7 @@ export default async function NewJobPage({
         <p className="mb-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>
       )}
 
-      <NewJobForm createJob={createJob} customers={customers ?? []} />
+      <NewJobForm createJob={createJob} customers={customers ?? []} teamOptions={teamOptions} />
     </div>
   )
 }

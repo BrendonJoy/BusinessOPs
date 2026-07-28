@@ -52,12 +52,20 @@ type CustomerOption = {
   address: string | null
 }
 
+type TeamOption = {
+  id: string
+  full_name: string | null
+  email: string
+}
+
 export default function NewJobForm({
   createJob,
   customers,
+  teamOptions,
 }: {
   createJob: (formData: FormData) => void
   customers: CustomerOption[]
+  teamOptions: TeamOption[]
 }) {
   const [description, setDescription] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -422,6 +430,27 @@ export default function NewJobForm({
             className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
         </div>
+
+        {teamOptions.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="assigned_user_id" className="text-sm font-medium">
+              Assigned to
+            </label>
+            <select
+              id="assigned_user_id"
+              name="assigned_user_id"
+              defaultValue=""
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            >
+              <option value="">Unassigned</option>
+              {teamOptions.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.full_name ?? member.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button
           type="submit"
