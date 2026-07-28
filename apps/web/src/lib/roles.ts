@@ -13,6 +13,10 @@ export async function getCurrentProfile(supabase: SupabaseClient): Promise<Profi
   return (data as Profile | null) ?? null
 }
 
-export function isCompanyAdmin(role: Profile['role'] | undefined): boolean {
-  return role === 'owner' || role === 'admin'
+export function isCompanyAccount(role: Profile['role'] | undefined): boolean {
+  return role === 'company'
+}
+
+export function canViewReports(profile: Profile | null): boolean {
+  return isCompanyAccount(profile?.role) || Boolean(profile?.can_view_reports)
 }

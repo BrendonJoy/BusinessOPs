@@ -49,12 +49,14 @@ export default function CalendarGrid({
   todayStr,
   jobsByDate,
   multiDayJobs,
+  canSchedule,
 }: {
   gridDays: string[]
   monthParam: string
   todayStr: string
   jobsByDate: Record<string, JobWithCustomer[]>
   multiDayJobs: JobWithCustomer[]
+  canSchedule: boolean
 }) {
   const [hoveredDay, setHoveredDay] = useState<string | null>(null)
 
@@ -66,11 +68,13 @@ export default function CalendarGrid({
   }
 
   function handleDragOver(e: React.DragEvent, day: string) {
+    if (!canSchedule) return
     e.preventDefault()
     setHoveredDay(day)
   }
 
   async function handleDrop(e: React.DragEvent, day: string) {
+    if (!canSchedule) return
     e.preventDefault()
     setHoveredDay(null)
     const raw = e.dataTransfer.getData('application/json')
@@ -147,9 +151,9 @@ export default function CalendarGrid({
                       <Link
                         key={job.id}
                         href={`/jobs/${job.id}`}
-                        draggable
+                        draggable={canSchedule}
                         onDragStart={(e) => handleDragStart(e, job)}
-                        className="block cursor-grab truncate rounded bg-surface px-1.5 py-0.5 text-xs hover:bg-accent/10 active:cursor-grabbing"
+                        className={`block truncate rounded bg-surface px-1.5 py-0.5 text-xs hover:bg-accent/10 ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
                         title={`${job.job_number ?? ''} — ${job.customer?.name ?? ''} (${JOB_STATUS_LABELS[job.status]})`}
                       >
                         {job.job_number} {job.customer?.name ?? ''}
@@ -166,9 +170,9 @@ export default function CalendarGrid({
                   <Link
                     key={bar.job.id}
                     href={`/jobs/${bar.job.id}`}
-                    draggable
+                    draggable={canSchedule}
                     onDragStart={(e) => handleDragStart(e, bar.job)}
-                    className="pointer-events-auto mx-1.5 block cursor-grab truncate rounded bg-accent/20 px-1.5 py-0.5 text-xs font-medium text-accent hover:bg-accent/30 active:cursor-grabbing"
+                    className={`pointer-events-auto mx-1.5 block truncate rounded bg-accent/20 px-1.5 py-0.5 text-xs font-medium text-accent hover:bg-accent/30 ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     style={{
                       gridColumn: `${bar.startCol + 1} / span ${bar.span}`,
                       marginTop: `${0.375 + bar.lane * BAR_HEIGHT_REM}rem`,

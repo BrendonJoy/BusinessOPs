@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Quote, QuoteLineItem } from '@trade-assist/db'
+import type { AccessLevel, Quote, QuoteLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
 import {
@@ -26,6 +26,7 @@ export default function QuotePanel({
   currency,
   taxLabel,
   gstRegistered,
+  accessLevel,
 }: {
   jobId: string
   quote: QuoteDetail | null
@@ -35,10 +36,14 @@ export default function QuotePanel({
   currency: string
   taxLabel: string
   gstRegistered: boolean
+  accessLevel: AccessLevel
 }) {
   const [isOpen, setIsOpen] = useState(Boolean(quote && initialOpenId === quote.id))
   const [requireDeposit, setRequireDeposit] = useState(Number(quote?.deposit_percent ?? 0) > 0)
 
+  if (accessLevel === 'hidden') return null
+
+  const canEdit = accessLevel === 'full'
   const quoteFrozen = quote?.status === 'accepted' || quote?.status === 'declined'
   const boundCreateQuote = createQuote.bind(null, jobId)
   const grandTotal = (q: QuoteDetail) => Number(q.total) + (gstRegistered ? Number(q.tax_amount) : 0)
@@ -47,7 +52,7 @@ export default function QuotePanel({
     <section className="rounded-lg border border-surface-border p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium">Quote</h2>
-        {!quote ? (
+        {!canEdit ? null : !quote ? (
           <form action={boundCreateQuote}>
             <button
               type="submit"
@@ -141,7 +146,7 @@ export default function QuotePanel({
               <span>
                 Total: <span className="font-medium">{formatMoney(grandTotal(quote), currency)}</span>
               </span>
-              {quote.status === 'draft' && (
+              {canEdit && quote.status === 'draft' && (
                 <form action={markQuoteSent.bind(null, quote.id, jobId)}>
                   <button type="submit" className="text-accent hover:opacity-80">
                     Send
@@ -169,7 +174,7 @@ export default function QuotePanel({
               </div>
             )}
 
-            {!quoteFrozen && (
+            {canEdit && !quoteFrozen && (
               <div className="flex items-end gap-6">
                 <form
                   action={updateQuoteDeposit.bind(null, quote.id, jobId)}
@@ -276,7 +281,7 @@ export default function QuotePanel({
                       <td className="py-1">{formatMoney(Number(item.unit_price), currency)}</td>
                       <td className="py-1">{formatMoney(Number(item.line_total), currency)}</td>
                       <td className="py-1 text-right">
-                        {!quoteFrozen && (
+                        {canEdit && !quoteFrozen && (
                           <form action={deleteQuoteLineItem.bind(null, item.id, jobId)}>
                             <button type="submit" className="text-xs text-muted hover:text-accent">
                               Remove
@@ -291,7 +296,7 @@ export default function QuotePanel({
               </div>
             )}
 
-            {!quoteFrozen && (
+            {canEdit && !quoteFrozen && (
               <LineItemsEditor
                 currency={currency}
                 onSave={(items) => addQuoteLineItemsBulk(quote.id, jobId, items)}

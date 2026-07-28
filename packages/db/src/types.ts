@@ -19,20 +19,32 @@ export interface Company {
   created_at: string
 }
 
-export interface Profile {
+export type AccessLevel = 'hidden' | 'view' | 'full'
+
+export interface StaffPermissions {
+  can_view_all_jobs: boolean
+  can_edit_jobs: boolean
+  quotes_access: AccessLevel
+  invoices_access: AccessLevel
+  can_log_expenses: boolean
+  can_view_reports: boolean
+  can_schedule: boolean
+}
+
+export interface Profile extends StaffPermissions {
   id: string
   company_id: string
   full_name: string | null
-  role: 'owner' | 'admin' | 'staff'
+  role: 'company' | 'staff'
   email: string
   created_at: string
 }
 
-export interface CompanyInvite {
+export interface CompanyInvite extends StaffPermissions {
   id: string
   company_id: string
   email: string
-  role: 'admin' | 'staff'
+  role: 'staff'
   token: string
   invited_by: string | null
   created_at: string

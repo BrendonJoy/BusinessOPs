@@ -6,27 +6,32 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/auth/actions'
 
 const LINKS = [
-  { href: '/dashboard', label: 'Dashboard', adminOnly: true },
-  { href: '/jobs', label: 'Jobs', adminOnly: false },
-  { href: '/calendar', label: 'Calendar', adminOnly: false },
-  { href: '/reports', label: 'Reports', adminOnly: true },
-  { href: '/expenses', label: 'Expenses', adminOnly: true },
-  { href: '/settings', label: 'Settings', adminOnly: true },
-  { href: '/feedback', label: 'Feedback', adminOnly: false },
+  { href: '/dashboard', label: 'Dashboard', companyOnly: true },
+  { href: '/jobs', label: 'Jobs', companyOnly: false },
+  { href: '/calendar', label: 'Calendar', companyOnly: false },
+  { href: '/reports', label: 'Reports', companyOnly: false },
+  { href: '/expenses', label: 'Expenses', companyOnly: true },
+  { href: '/settings', label: 'Settings', companyOnly: true },
+  { href: '/feedback', label: 'Feedback', companyOnly: false },
 ]
 
 export default function NavMenu({
   isAdmin,
   role,
+  canViewReports,
 }: {
   isAdmin: boolean
-  role: 'owner' | 'admin' | 'staff'
+  role: 'company' | 'staff'
+  canViewReports: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
 
-  const isCompanyAdmin = role === 'owner' || role === 'admin'
-  const visibleLinks = LINKS.filter((link) => isCompanyAdmin || !link.adminOnly)
+  const isCompanyAccount = role === 'company'
+  const visibleLinks = LINKS.filter((link) => {
+    if (link.href === '/reports') return isCompanyAccount || canViewReports
+    return isCompanyAccount || !link.companyOnly
+  })
   const allLinks = isAdmin ? [...visibleLinks, { href: '/admin/feedback', label: 'Admin' }] : visibleLinks
 
   return (

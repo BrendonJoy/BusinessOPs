@@ -27,12 +27,6 @@ export async function updateJob(jobId: string, formData: FormData) {
 
   const { data: before } = await supabase.from('jobs').select('status').eq('id', jobId).maybeSingle()
 
-  // assigned_user_id is only ever present in the form for owner/admin (the
-  // assignment control is hidden entirely for staff) -- when the field is
-  // absent, leave the existing assignment untouched rather than clearing it.
-  const hasAssignedUserField = formData.has('assigned_user_id')
-  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
-
   const { error } = await supabase
     .from('jobs')
     .update({
@@ -45,7 +39,6 @@ export async function updateJob(jobId: string, formData: FormData) {
       finish_time: finishTime,
       geo_lat: geoLat,
       geo_lng: geoLng,
-      ...(hasAssignedUserField ? { assigned_user_id: assignedUserId } : {}),
     })
     .eq('id', jobId)
 
@@ -56,6 +49,22 @@ export async function updateJob(jobId: string, formData: FormData) {
   } else {
     await logJobAudit(supabase, jobId, 'Job details updated')
   }
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/jobs')
+}
+
+// Separate from updateJob on purpose -- "Scheduling" (can_schedule) is a
+// distinct permission from "Edit jobs" (can_edit_jobs), and the assigned-to
+// dropdown is a narrow standalone form that only ever submits this one field.
+export async function updateJobAssignment(jobId: string, formData: FormData) {
+  const supabase = await createClient()
+  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
+
+  const { error } = await supabase.from('jobs').update({ assigned_user_id: assignedUserId }).eq('id', jobId)
+  if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, 'Assignment updated')
 
   revalidatePath(`/jobs/${jobId}`)
   revalidatePath('/jobs')

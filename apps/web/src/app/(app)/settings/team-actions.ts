@@ -4,29 +4,45 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
-import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
+import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { sendTeamInviteEmail } from '@/lib/email'
+import type { AccessLevel } from '@trade-assist/db'
 
 function errorRedirect(message: string): never {
   redirect(`/settings?error=${encodeURIComponent(message)}`)
 }
 
+function extractPermissions(formData: FormData) {
+  const quotesAccess = String(formData.get('quotes_access') ?? 'hidden')
+  const invoicesAccess = String(formData.get('invoices_access') ?? 'hidden')
+
+  if (!['hidden', 'view', 'full'].includes(quotesAccess)) errorRedirect('Invalid quotes access level.')
+  if (!['hidden', 'view', 'full'].includes(invoicesAccess)) errorRedirect('Invalid invoices access level.')
+
+  return {
+    can_view_all_jobs: formData.get('can_view_all_jobs') === 'on',
+    can_edit_jobs: formData.get('can_edit_jobs') === 'on',
+    quotes_access: quotesAccess as AccessLevel,
+    invoices_access: invoicesAccess as AccessLevel,
+    can_log_expenses: formData.get('can_log_expenses') === 'on',
+    can_view_reports: formData.get('can_view_reports') === 'on',
+    can_schedule: formData.get('can_schedule') === 'on',
+  }
+}
+
 export async function inviteTeamMember(formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) errorRedirect('Only owners and admins can invite teammates.')
+  if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can invite teammates.')
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
-  const role = String(formData.get('role') ?? 'staff')
-
   if (!email) errorRedirect('Enter an email address.')
-  if (role !== 'admin' && role !== 'staff') errorRedirect('Invalid role.')
 
   const { data: company } = await supabase.from('companies').select('name').eq('id', profile.company_id).single()
 
   const { data: invite, error } = await supabase
     .from('company_invites')
-    .insert({ company_id: profile.company_id, email, role, invited_by: profile.id })
+    .insert({ company_id: profile.company_id, email, invited_by: profile.id })
     .select('token')
     .single()
 
@@ -36,7 +52,7 @@ export async function inviteTeamMember(formData: FormData) {
   const result = await sendTeamInviteEmail({
     to: email,
     companyName: company?.name ?? 'BusinessOps',
-    role,
+    role: 'staff',
     inviteUrl: `${baseUrl}/accept-invite/${invite!.token}`,
   })
 
@@ -50,7 +66,7 @@ export async function inviteTeamMember(formData: FormData) {
 export async function revokeInvite(inviteId: string) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) errorRedirect('Only owners and admins can revoke invites.')
+  if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can revoke invites.')
 
   const { error } = await supabase.from('company_invites').delete().eq('id', inviteId)
   if (error) errorRedirect(error.message)
@@ -58,15 +74,23 @@ export async function revokeInvite(inviteId: string) {
   revalidatePath('/settings')
 }
 
-export async function updateMemberRole(profileId: string, formData: FormData) {
+export async function updateMemberPermissions(profileId: string, formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) errorRedirect('Only owners and admins can change roles.')
+  if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can change permissions.')
 
-  const role = String(formData.get('role') ?? '')
-  if (role !== 'admin' && role !== 'staff') errorRedirect('Invalid role.')
+  const { error } = await supabase.from('profiles').update(extractPermissions(formData)).eq('id', profileId)
+  if (error) errorRedirect(error.message)
 
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', profileId)
+  revalidatePath('/settings')
+}
+
+export async function updateInvitePermissions(inviteId: string, formData: FormData) {
+  const supabase = await createClient()
+  const profile = await getCurrentProfile(supabase)
+  if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can change permissions.')
+
+  const { error } = await supabase.from('company_invites').update(extractPermissions(formData)).eq('id', inviteId)
   if (error) errorRedirect(error.message)
 
   revalidatePath('/settings')
@@ -75,7 +99,7 @@ export async function updateMemberRole(profileId: string, formData: FormData) {
 export async function removeMember(profileId: string) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) errorRedirect('Only owners and admins can remove teammates.')
+  if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can remove teammates.')
 
   const { error } = await supabase.from('profiles').delete().eq('id', profileId)
   if (error) errorRedirect(error.message)

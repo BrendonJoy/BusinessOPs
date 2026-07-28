@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
+import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { createJob } from './actions'
 import NewJobForm from './NewJobForm'
 
@@ -18,7 +18,7 @@ export default async function NewJobPage({
     .order('name')
 
   let teamOptions: { id: string; full_name: string | null; email: string }[] = []
-  if (profile && isCompanyAdmin(profile.role)) {
+  if (profile && (isCompanyAccount(profile.role) || profile.can_schedule)) {
     const { data: team } = await supabase
       .from('profiles')
       .select('id, full_name, email')

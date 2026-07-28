@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency } from '@/lib/company'
-import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
+import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { Expense } from '@trade-assist/db'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import { assignExpenseToJob, deleteExpense, uploadExpense } from './actions'
@@ -17,7 +17,7 @@ export default async function ExpensesPage({
   const { error: actionError } = await searchParams
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) redirect('/jobs')
+  if (!profile || !isCompanyAccount(profile.role)) redirect('/jobs')
 
   const { currency, tax_label, default_tax_rate } = await getCompanyCurrency(supabase)
 

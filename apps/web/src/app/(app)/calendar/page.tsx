@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getCalendarGridDays, getMonthInfo } from '@/lib/calendar'
+import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { JobWithCustomer } from '@/lib/jobs'
 import CalendarGrid from './CalendarGrid'
 import RoutePlanner from './RoutePlanner'
@@ -22,6 +23,9 @@ export default async function CalendarPage({
   const gridEnd = gridDays[gridDays.length - 1]
 
   const supabase = await createClient()
+  const currentProfile = await getCurrentProfile(supabase)
+  const canSchedule = isCompanyAccount(currentProfile?.role) || Boolean(currentProfile?.can_schedule)
+
   const { data } = await supabase
     .from('jobs')
     .select('*, customer:customers(id, name)')
@@ -67,7 +71,7 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <RoutePlanner />
+      {canSchedule && <RoutePlanner />}
 
       <CalendarGrid
         gridDays={gridDays}
@@ -75,6 +79,7 @@ export default async function CalendarPage({
         todayStr={todayStr}
         jobsByDate={jobsByDate}
         multiDayJobs={multiDayJobs}
+        canSchedule={canSchedule}
       />
     </div>
   )

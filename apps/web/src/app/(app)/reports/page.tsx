@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency } from '@/lib/company'
-import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
+import { getCurrentProfile, canViewReports } from '@/lib/roles'
 import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
 
 type ReportJob = Job & {
@@ -23,7 +23,7 @@ export default async function ReportsPage({
 
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!profile || !isCompanyAdmin(profile.role)) redirect('/jobs')
+  if (!canViewReports(profile)) redirect('/jobs')
 
   const { currency } = await getCompanyCurrency(supabase)
   const { data } = await supabase

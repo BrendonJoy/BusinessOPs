@@ -3,10 +3,18 @@ import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { formatMoney } from '@/lib/money'
 import { formatAuditTimestamp } from '@/lib/audit'
-import { getCurrentProfile, isCompanyAdmin } from '@/lib/roles'
+import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { Customer, CostEntry, Expense, Job, JobFile } from '@trade-assist/db'
-import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, uploadJobFile } from './actions'
+import {
+  addCostEntry,
+  deleteCostEntry,
+  deleteJob,
+  deleteJobFile,
+  updateJob,
+  updateJobAssignment,
+  uploadJobFile,
+} from './actions'
 import { assignExpenseToJob, deleteExpense, uploadExpenseForJob } from '@/app/(app)/expenses/actions'
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
@@ -54,7 +62,12 @@ export default async function JobDetailPage({
   if (!job) notFound()
 
   const currentProfile = await getCurrentProfile(supabase)
-  const canManageAssignment = isCompanyAdmin(currentProfile?.role)
+  const isCompany = isCompanyAccount(currentProfile?.role)
+  const canManageAssignment = isCompany || Boolean(currentProfile?.can_schedule)
+  const canEditJob = isCompany || Boolean(currentProfile?.can_edit_jobs)
+  const canLogExpenses = isCompany || Boolean(currentProfile?.can_log_expenses)
+  const quotesAccessLevel = isCompany ? 'full' : (currentProfile?.quotes_access ?? 'hidden')
+  const invoicesAccessLevel = isCompany ? 'full' : (currentProfile?.invoices_access ?? 'hidden')
 
   let teamOptions: { id: string; full_name: string | null; email: string }[] = []
   if (canManageAssignment) {
@@ -169,80 +182,134 @@ export default async function JobDetailPage({
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Details</h2>
-        <form action={boundUpdateJob} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="status" className="text-sm font-medium">
-              Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              defaultValue={job.status}
-              className="max-w-xs rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+
+        {canEditJob ? (
+          <form action={boundUpdateJob} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="status" className="text-sm font-medium">
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                defaultValue={job.status}
+                className="max-w-xs rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              >
+                {JOB_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {JOB_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <JobAddressField
+              defaultValue={job.address_line ?? ''}
+              defaultLat={job.geo_lat}
+              defaultLng={job.geo_lng}
+              customerAddress={job.customer?.address ?? null}
+            />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="start_date" className="text-sm font-medium">
+                  Start date
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="start_date"
+                    name="start_date"
+                    type="date"
+                    defaultValue={job.start_date ?? ''}
+                    className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  />
+                  <input
+                    id="start_time"
+                    name="start_time"
+                    type="time"
+                    defaultValue={job.start_time ?? ''}
+                    className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="finish_date" className="text-sm font-medium">
+                  Finish date
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="finish_date"
+                    name="finish_date"
+                    type="date"
+                    defaultValue={job.finish_date ?? ''}
+                    className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  />
+                  <input
+                    id="finish_time"
+                    name="finish_time"
+                    type="time"
+                    defaultValue={job.finish_time ?? ''}
+                    className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="notes" className="text-sm font-medium">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                defaultValue={job.notes ?? ''}
+                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
             >
-              {JOB_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {JOB_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <JobAddressField
-            defaultValue={job.address_line ?? ''}
-            defaultLat={job.geo_lat}
-            defaultLng={job.geo_lng}
-            customerAddress={job.customer?.address ?? null}
-          />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="start_date" className="text-sm font-medium">
-                Start date
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="start_date"
-                  name="start_date"
-                  type="date"
-                  defaultValue={job.start_date ?? ''}
-                  className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                />
-                <input
-                  id="start_time"
-                  name="start_time"
-                  type="time"
-                  defaultValue={job.start_time ?? ''}
-                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                />
+              Save
+            </button>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-4 text-sm">
+            <div>
+              <p className="text-xs font-medium text-muted">Status</p>
+              <p>{JOB_STATUS_LABELS[job.status]}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted">Job address</p>
+              <p>{job.address_line || '—'}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium text-muted">Start date</p>
+                <p>
+                  {job.start_date ?? '—'} {job.start_time ?? ''}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted">Finish date</p>
+                <p>
+                  {job.finish_date ?? '—'} {job.finish_time ?? ''}
+                </p>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="finish_date" className="text-sm font-medium">
-                Finish date
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="finish_date"
-                  name="finish_date"
-                  type="date"
-                  defaultValue={job.finish_date ?? ''}
-                  className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                />
-                <input
-                  id="finish_time"
-                  name="finish_time"
-                  type="time"
-                  defaultValue={job.finish_time ?? ''}
-                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                />
-              </div>
+            <div>
+              <p className="text-xs font-medium text-muted">Notes</p>
+              <p className="whitespace-pre-wrap">{job.notes || '—'}</p>
             </div>
           </div>
+        )}
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Assigned to</label>
-            {canManageAssignment ? (
+        <div className="mt-4 border-t border-surface-border pt-4">
+          <label className="mb-1 block text-sm font-medium">Assigned to</label>
+          {canManageAssignment ? (
+            <form action={updateJobAssignment.bind(null, job.id)} className="flex flex-wrap items-center gap-2">
               <select
                 name="assigned_user_id"
                 defaultValue={job.assigned_user_id ?? ''}
@@ -255,37 +322,25 @@ export default async function JobDetailPage({
                   </option>
                 ))}
               </select>
-            ) : (
-              <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
-                {job.assigned_profile?.full_name ?? job.assigned_profile?.email ?? 'Unassigned'}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="notes" className="text-sm font-medium">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              rows={3}
-              defaultValue={job.notes ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-          >
-            Save
-          </button>
-        </form>
-
-        <div className="mt-4 border-t border-surface-border pt-4">
-          <DeleteJobButton jobNumber={job.job_number ?? 'this job'} deleteJob={deleteJob.bind(null, job.id)} />
+              <button
+                type="submit"
+                className="rounded-md border border-surface-border px-3 py-2 text-xs font-medium hover:border-accent"
+              >
+                Save
+              </button>
+            </form>
+          ) : (
+            <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
+              {job.assigned_profile?.full_name ?? job.assigned_profile?.email ?? 'Unassigned'}
+            </p>
+          )}
         </div>
+
+        {isCompany && (
+          <div className="mt-4 border-t border-surface-border pt-4">
+            <DeleteJobButton jobNumber={job.job_number ?? 'this job'} deleteJob={deleteJob.bind(null, job.id)} />
+          </div>
+        )}
       </section>
 
       <QuotePanel
@@ -298,6 +353,7 @@ export default async function JobDetailPage({
         currency={currency}
         taxLabel={taxLabel}
         gstRegistered={gstRegistered}
+        accessLevel={quotesAccessLevel}
       />
 
       <InvoicePanel
@@ -310,6 +366,7 @@ export default async function JobDetailPage({
         currency={currency}
         taxLabel={taxLabel}
         gstRegistered={gstRegistered}
+        accessLevel={invoicesAccessLevel}
       />
 
       <section className="rounded-lg border border-surface-border p-4">
@@ -377,11 +434,13 @@ export default async function JobDetailPage({
                           Invoiced
                         </span>
                       ) : (
-                        <form action={boundDelete}>
-                          <button type="submit" className="text-xs text-muted hover:text-accent">
-                            Remove
-                          </button>
-                        </form>
+                        canEditJob && (
+                          <form action={boundDelete}>
+                            <button type="submit" className="text-xs text-muted hover:text-accent">
+                              Remove
+                            </button>
+                          </form>
+                        )
                       )}
                     </td>
                   </tr>
@@ -392,6 +451,7 @@ export default async function JobDetailPage({
           </div>
         )}
 
+        {canEditJob && (
         <form action={boundAddCostEntry} className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="type" className="text-xs font-medium">
@@ -451,7 +511,9 @@ export default async function JobDetailPage({
             Add
           </button>
         </form>
+        )}
 
+        {canLogExpenses && (
         <div className="mt-6 border-t border-surface-border pt-4">
           <h3 className="mb-3 text-xs font-semibold text-muted">Add cost from receipt</h3>
 
@@ -579,6 +641,7 @@ export default async function JobDetailPage({
             </div>
           )}
         </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-surface-border p-4">
@@ -597,19 +660,22 @@ export default async function JobDetailPage({
                   ) : (
                     <span>{f.file_url.split('/').pop()}</span>
                   )}
-                  <ConfirmSubmitButton
-                    action={boundDeleteFile}
-                    confirmMessage="Permanently delete this file? This cannot be undone."
-                    className="text-xs text-muted hover:text-accent"
-                  >
-                    Remove
-                  </ConfirmSubmitButton>
+                  {canEditJob && (
+                    <ConfirmSubmitButton
+                      action={boundDeleteFile}
+                      confirmMessage="Permanently delete this file? This cannot be undone."
+                      className="text-xs text-muted hover:text-accent"
+                    >
+                      Remove
+                    </ConfirmSubmitButton>
+                  )}
                 </li>
               )
             })}
           </ul>
         )}
 
+        {canEditJob && (
         <div className="flex flex-wrap items-center gap-3">
           <form action={boundUploadJobFile} className="flex flex-wrap items-center gap-3">
             <input
@@ -642,6 +708,7 @@ export default async function JobDetailPage({
             </button>
           </form>
         </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-surface-border p-4">

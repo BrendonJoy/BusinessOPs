@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { CostEntry, Invoice, InvoiceLineItem } from '@trade-assist/db'
+import type { AccessLevel, CostEntry, Invoice, InvoiceLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
@@ -30,6 +30,7 @@ export default function InvoicePanel({
   currency,
   taxLabel,
   gstRegistered,
+  accessLevel,
 }: {
   jobId: string
   invoices: InvoiceDetail[]
@@ -39,11 +40,15 @@ export default function InvoicePanel({
   currency: string
   taxLabel: string
   gstRegistered: boolean
+  accessLevel: AccessLevel
 }) {
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(
     initialOpenId && invoices.some((inv) => inv.id === initialOpenId) ? initialOpenId : null
   )
 
+  if (accessLevel === 'hidden') return null
+
+  const canEdit = accessLevel === 'full'
   const openInvoice = invoices.find((inv) => inv.id === openInvoiceId) ?? null
   const boundCreateInvoice = createInvoice.bind(null, jobId)
   const grandTotal = (inv: InvoiceDetail) => Number(inv.total) + (gstRegistered ? Number(inv.tax_amount) : 0)
@@ -56,14 +61,16 @@ export default function InvoicePanel({
     <section className="rounded-lg border border-surface-border p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium">Invoices</h2>
-        <form action={boundCreateInvoice}>
-          <button
-            type="submit"
-            className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
-          >
-            Create invoice
-          </button>
-        </form>
+        {canEdit && (
+          <form action={boundCreateInvoice}>
+            <button
+              type="submit"
+              className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+            >
+              Create invoice
+            </button>
+          </form>
+        )}
       </div>
 
       {invoices.length === 0 ? (
@@ -84,33 +91,34 @@ export default function InvoicePanel({
               <a href={`/api/invoices/${invoice.id}/pdf`} className="text-accent hover:opacity-80">
                 Download PDF
               </a>
-              {invoice.status === 'draft' ? (
-                <div className="ml-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openInvoicePanel(invoice.id)}
-                    className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
-                  >
-                    Edit
-                  </button>
-                  <ConfirmSubmitButton
-                    action={deleteInvoice.bind(null, invoice.id, jobId)}
-                    confirmMessage="Permanently delete this draft invoice? This cannot be undone."
-                    className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
-                  >
-                    Delete
-                  </ConfirmSubmitButton>
-                </div>
-              ) : (
-                <form action={createInvoiceVersion.bind(null, invoice.id, jobId)} className="ml-auto">
-                  <button
-                    type="submit"
-                    className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
-                  >
-                    Edit (new version)
-                  </button>
-                </form>
-              )}
+              {canEdit &&
+                (invoice.status === 'draft' ? (
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openInvoicePanel(invoice.id)}
+                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                    >
+                      Edit
+                    </button>
+                    <ConfirmSubmitButton
+                      action={deleteInvoice.bind(null, invoice.id, jobId)}
+                      confirmMessage="Permanently delete this draft invoice? This cannot be undone."
+                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                    >
+                      Delete
+                    </ConfirmSubmitButton>
+                  </div>
+                ) : (
+                  <form action={createInvoiceVersion.bind(null, invoice.id, jobId)} className="ml-auto">
+                    <button
+                      type="submit"
+                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                    >
+                      Edit (new version)
+                    </button>
+                  </form>
+                ))}
             </div>
           ))}
         </div>
@@ -162,25 +170,27 @@ export default function InvoicePanel({
               <a href={`/api/invoices/${openInvoice.id}/pdf`} className="text-accent hover:opacity-80">
                 Download PDF
               </a>
-              <form
-                action={updateInvoiceStatus.bind(null, openInvoice.id, jobId)}
-                className="flex items-center gap-2"
-              >
-                <select
-                  name="status"
-                  defaultValue={openInvoice.status}
-                  className="rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+              {canEdit && (
+                <form
+                  action={updateInvoiceStatus.bind(null, openInvoice.id, jobId)}
+                  className="flex items-center gap-2"
                 >
-                  {INVOICE_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="text-xs text-accent hover:opacity-80">
-                  Update status
-                </button>
-              </form>
+                  <select
+                    name="status"
+                    defaultValue={openInvoice.status}
+                    className="rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+                  >
+                    {INVOICE_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit" className="text-xs text-accent hover:opacity-80">
+                    Update status
+                  </button>
+                </form>
+              )}
             </div>
 
             {gstRegistered && (
@@ -202,7 +212,7 @@ export default function InvoicePanel({
               </div>
             )}
 
-            {gstRegistered && openInvoice.status === 'draft' && (
+            {canEdit && gstRegistered && openInvoice.status === 'draft' && (
               <form
                 action={updateInvoiceTaxRate.bind(null, openInvoice.id, jobId)}
                 className="flex items-end gap-3"
@@ -253,7 +263,7 @@ export default function InvoicePanel({
                       <td className="py-1">{formatMoney(Number(item.unit_price), currency)}</td>
                       <td className="py-1">{formatMoney(Number(item.line_total), currency)}</td>
                       <td className="py-1 text-right">
-                        {openInvoice.status === 'draft' && (
+                        {canEdit && openInvoice.status === 'draft' && (
                           <form action={removeInvoiceLineItem.bind(null, item.id, jobId)}>
                             <button type="submit" className="text-xs text-muted hover:text-accent">
                               Remove
@@ -268,7 +278,7 @@ export default function InvoicePanel({
               </div>
             )}
 
-            {openInvoice.status === 'draft' && (
+            {canEdit && openInvoice.status === 'draft' && (
               <div className="flex flex-col gap-3">
                 {uninvoicedCostEntries.length > 0 && (
                   <div className="rounded-md bg-surface p-2">
