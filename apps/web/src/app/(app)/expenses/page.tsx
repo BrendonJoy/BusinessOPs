@@ -57,21 +57,39 @@ export default async function ExpensesPage({
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Upload receipt</h2>
-        <form action={uploadExpense} className="flex items-center gap-3">
-          <input
-            type="file"
-            name="file"
-            accept="image/*,application/pdf"
-            required
-            className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-          >
-            Upload
-          </button>
-        </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <form action={uploadExpense} className="flex items-center gap-3">
+            <input
+              type="file"
+              name="file"
+              accept="image/*,application/pdf"
+              required
+              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+            >
+              Upload
+            </button>
+          </form>
+          <form action={uploadExpense} className="flex items-center gap-3">
+            <input
+              type="file"
+              name="file"
+              accept="image/*"
+              capture="environment"
+              required
+              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+            >
+              Take photo
+            </button>
+          </form>
+        </div>
       </section>
 
       <section className="rounded-lg border border-surface-border p-4">

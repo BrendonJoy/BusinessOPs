@@ -7,7 +7,7 @@ import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
 type ReportJob = Job & {
   customer: Pick<Customer, 'name'> | null
   cost_entries: CostEntry[]
-  invoices: Pick<Invoice, 'status' | 'total' | 'tax_amount'>[]
+  invoices: Pick<Invoice, 'status' | 'total' | 'tax_amount' | 'superseded_at'>[]
 }
 
 export default async function ReportsPage({
@@ -23,7 +23,7 @@ export default async function ReportsPage({
   const { currency } = await getCompanyCurrency(supabase)
   const { data } = await supabase
     .from('jobs')
-    .select('*, customer:customers(name), cost_entries(*), invoices(status, total, tax_amount)')
+    .select('*, customer:customers(name), cost_entries(*), invoices(status, total, tax_amount, superseded_at)')
     .gte('start_date', from)
     .lte('start_date', to)
     .order('start_date', { ascending: true })
@@ -32,10 +32,9 @@ export default async function ReportsPage({
 
   const rows = jobs.map((job) => {
     const costsTotal = job.cost_entries.reduce((sum, c) => sum + Number(c.total_cost), 0)
-    const invoicedTotal = job.invoices.reduce(
-      (sum, inv) => sum + Number(inv.total) + Number(inv.tax_amount),
-      0
-    )
+    const invoicedTotal = job.invoices
+      .filter((inv) => !inv.superseded_at)
+      .reduce((sum, inv) => sum + Number(inv.total) + Number(inv.tax_amount), 0)
     return { job, costsTotal, invoicedTotal, profit: invoicedTotal - costsTotal }
   })
 
