@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD } from '@/lib/calendar'
 import { formatAuditTimestamp } from '@/lib/audit'
 import { formatMoney } from '@/lib/money'
-import { getCompanyCurrency } from '@/lib/company'
+import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { JOB_STATUS_GROUPS } from '@trade-assist/db'
 import type { Customer, CostEntry, Invoice, Quote, Job } from '@trade-assist/db'
@@ -55,9 +55,10 @@ export default async function DashboardPage() {
   const today = formatDateYMD(now)
   const { start: weekStart, end: weekEnd } = getWeekRange(now)
 
-  const [{ data: profileData }, { currency }, { data: jobsData }, { data: auditData }] = await Promise.all([
+  const [{ data: profileData }, { currency }, modules, { data: jobsData }, { data: auditData }] = await Promise.all([
     supabase.from('profiles').select('full_name').single(),
     getCompanyCurrency(supabase),
+    getCompanyModules(supabase),
     supabase
       .from('jobs')
       .select(
@@ -149,8 +150,12 @@ export default async function DashboardPage() {
           <p className="text-2xl font-semibold">{jobsToday}</p>
           <p className="text-xs text-muted">Jobs Today</p>
         </div>
-        <StatDrilldown label="Quotes Awaiting Approval" items={quotesAwaitingItems} currency={currency} />
-        <StatDrilldown label="Invoices Ready to Send" items={invoicesReadyItems} currency={currency} />
+        {modules.modules_quotes_enabled && (
+          <StatDrilldown label="Quotes Awaiting Approval" items={quotesAwaitingItems} currency={currency} />
+        )}
+        {modules.modules_invoicing_enabled && (
+          <StatDrilldown label="Invoices Ready to Send" items={invoicesReadyItems} currency={currency} />
+        )}
         <div className="rounded-lg border border-surface-border p-4">
           <p className="text-2xl font-semibold">{jobsOverBudget}</p>
           <p className="text-xs text-muted">Jobs Over Budget</p>

@@ -43,6 +43,26 @@ export async function updateCompany(formData: FormData) {
   revalidatePath('/settings')
 }
 
+export async function updateCompanyModules(formData: FormData) {
+  const supabase = await createClient()
+  const { data: profile } = await supabase.from('profiles').select('company_id').single()
+  if (!profile) errorRedirect('Could not determine your company.')
+
+  const { error } = await supabase
+    .from('companies')
+    .update({
+      modules_quotes_enabled: formData.get('modules_quotes_enabled') === 'on',
+      modules_invoicing_enabled: formData.get('modules_invoicing_enabled') === 'on',
+      modules_expenses_enabled: formData.get('modules_expenses_enabled') === 'on',
+      modules_reports_enabled: formData.get('modules_reports_enabled') === 'on',
+    })
+    .eq('id', profile.company_id)
+
+  if (error) errorRedirect(error.message)
+
+  revalidatePath('/settings')
+}
+
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient()
   const {

@@ -30,6 +30,13 @@ function extractPermissions(formData: FormData) {
   }
 }
 
+function parsePayRate(formData: FormData): number | null {
+  const raw = String(formData.get('pay_rate') ?? '').trim()
+  if (!raw) return null
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
+}
+
 export async function inviteTeamMember(formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
@@ -82,6 +89,13 @@ export async function updateMemberPermissions(profileId: string, formData: FormD
   const { error } = await supabase.from('profiles').update(extractPermissions(formData)).eq('id', profileId)
   if (error) errorRedirect(error.message)
 
+  const payRate = parsePayRate(formData)
+  if (payRate === null) {
+    await supabase.from('staff_pay_rates').delete().eq('profile_id', profileId)
+  } else {
+    await supabase.from('staff_pay_rates').upsert({ profile_id: profileId, pay_rate: payRate })
+  }
+
   revalidatePath('/settings')
 }
 
@@ -90,7 +104,10 @@ export async function updateInvitePermissions(inviteId: string, formData: FormDa
   const profile = await getCurrentProfile(supabase)
   if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can change permissions.')
 
-  const { error } = await supabase.from('company_invites').update(extractPermissions(formData)).eq('id', inviteId)
+  const { error } = await supabase
+    .from('company_invites')
+    .update({ ...extractPermissions(formData), pay_rate: parsePayRate(formData) })
+    .eq('id', inviteId)
   if (error) errorRedirect(error.message)
 
   revalidatePath('/settings')

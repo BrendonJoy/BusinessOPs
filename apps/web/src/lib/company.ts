@@ -17,6 +17,43 @@ export async function getCompanyCurrency(
   return company ?? { currency: 'USD', tax_label: 'Tax', default_tax_rate: 0 }
 }
 
+export async function getCompanyModules(supabase: SupabaseClient): Promise<{
+  modules_quotes_enabled: boolean
+  modules_invoicing_enabled: boolean
+  modules_expenses_enabled: boolean
+  modules_reports_enabled: boolean
+}> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const defaults = {
+    modules_quotes_enabled: true,
+    modules_invoicing_enabled: true,
+    modules_expenses_enabled: true,
+    modules_reports_enabled: true,
+  }
+
+  if (!user) return defaults
+
+  const { data } = await supabase
+    .from('profiles')
+    .select(
+      'company:companies(modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled, modules_reports_enabled)'
+    )
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const company = data?.company as unknown as {
+    modules_quotes_enabled: boolean
+    modules_invoicing_enabled: boolean
+    modules_expenses_enabled: boolean
+    modules_reports_enabled: boolean
+  } | null
+
+  return company ?? defaults
+}
+
 export async function getCompanyInfo(
   supabase: SupabaseClient
 ): Promise<{ name: string; currency: string; gst_registered: boolean } | null> {

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
 import { formatMoney } from '@/lib/money'
-import { getCompanyCurrency } from '@/lib/company'
+import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, canViewReports } from '@/lib/roles'
 import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
 
@@ -23,7 +23,8 @@ export default async function ReportsPage({
 
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
-  if (!canViewReports(profile)) redirect('/jobs')
+  const { modules_reports_enabled } = await getCompanyModules(supabase)
+  if (!modules_reports_enabled || !canViewReports(profile)) redirect('/jobs')
 
   const { currency } = await getCompanyCurrency(supabase)
   const { data } = await supabase

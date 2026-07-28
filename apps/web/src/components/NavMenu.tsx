@@ -11,7 +11,7 @@ const LINKS = [
   { href: '/calendar', label: 'Calendar', companyOnly: false },
   { href: '/reports', label: 'Reports', companyOnly: false },
   { href: '/expenses', label: 'Expenses', companyOnly: true },
-  { href: '/settings', label: 'Settings', companyOnly: true },
+  { href: '/settings', label: 'Settings', companyOnly: false },
   { href: '/feedback', label: 'Feedback', companyOnly: false },
 ]
 
@@ -19,17 +19,22 @@ export default function NavMenu({
   isAdmin,
   role,
   canViewReports,
+  reportsModuleEnabled,
+  expensesModuleEnabled,
 }: {
   isAdmin: boolean
   role: 'company' | 'staff'
   canViewReports: boolean
+  reportsModuleEnabled: boolean
+  expensesModuleEnabled: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
 
   const isCompanyAccount = role === 'company'
   const visibleLinks = LINKS.filter((link) => {
-    if (link.href === '/reports') return isCompanyAccount || canViewReports
+    if (link.href === '/reports') return reportsModuleEnabled && (isCompanyAccount || canViewReports)
+    if (link.href === '/expenses') return expensesModuleEnabled && isCompanyAccount
     return isCompanyAccount || !link.companyOnly
   })
   const allLinks = isAdmin ? [...visibleLinks, { href: '/admin/feedback', label: 'Admin' }] : visibleLinks

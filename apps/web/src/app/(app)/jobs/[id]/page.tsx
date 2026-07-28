@@ -18,6 +18,7 @@ import {
 import { assignExpenseToJob, deleteExpense, uploadExpenseForJob } from '@/app/(app)/expenses/actions'
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
+import CostEntryForm from './CostEntryForm'
 import DeleteJobButton from './DeleteJobButton'
 import JobAddressField from '@/components/JobAddressField'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
@@ -33,7 +34,14 @@ type JobDetail = Job & {
   customer: Customer | null
   cost_entries: CostEntry[]
   job_files: JobFile[]
-  company: { currency: string; tax_label: string; gst_registered: boolean }
+  company: {
+    currency: string
+    tax_label: string
+    gst_registered: boolean
+    modules_quotes_enabled: boolean
+    modules_invoicing_enabled: boolean
+    modules_expenses_enabled: boolean
+  }
   job_audit_log: AuditEntry[]
   assigned_profile: { full_name: string | null; email: string } | null
 }
@@ -52,7 +60,7 @@ export default async function JobDetailPage({
   const { data } = await supabase
     .from('jobs')
     .select(
-      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered), job_audit_log(id, action, created_at, profile:profiles(full_name)), assigned_profile:profiles!jobs_assigned_user_id_fkey(full_name, email)'
+      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered, modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled), job_audit_log(id, action, created_at, profile:profiles(full_name)), assigned_profile:profiles!jobs_assigned_user_id_fkey(full_name, email)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -65,9 +73,28 @@ export default async function JobDetailPage({
   const isCompany = isCompanyAccount(currentProfile?.role)
   const canManageAssignment = isCompany || Boolean(currentProfile?.can_schedule)
   const canEditJob = isCompany || Boolean(currentProfile?.can_edit_jobs)
-  const canLogExpenses = isCompany || Boolean(currentProfile?.can_log_expenses)
-  const quotesAccessLevel = isCompany ? 'full' : (currentProfile?.quotes_access ?? 'hidden')
-  const invoicesAccessLevel = isCompany ? 'full' : (currentProfile?.invoices_access ?? 'hidden')
+  const canLogExpenses =
+    job.company.modules_expenses_enabled && (isCompany || Boolean(currentProfile?.can_log_expenses))
+  const quotesAccessLevel = job.company.modules_quotes_enabled
+    ? isCompany
+      ? 'full'
+      : (currentProfile?.quotes_access ?? 'hidden')
+    : 'hidden'
+  const invoicesAccessLevel = job.company.modules_invoicing_enabled
+    ? isCompany
+      ? 'full'
+      : (currentProfile?.invoices_access ?? 'hidden')
+    : 'hidden'
+
+  let payRate: number | null = null
+  if (!isCompany && currentProfile) {
+    const { data: rateRow } = await supabase
+      .from('staff_pay_rates')
+      .select('pay_rate')
+      .eq('profile_id', currentProfile.id)
+      .maybeSingle()
+    payRate = rateRow ? Number(rateRow.pay_rate) : null
+  }
 
   let teamOptions: { id: string; full_name: string | null; email: string }[] = []
   if (canManageAssignment) {
@@ -451,67 +478,7 @@ export default async function JobDetailPage({
           </div>
         )}
 
-        {canEditJob && (
-        <form action={boundAddCostEntry} className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="type" className="text-xs font-medium">
-              Type
-            </label>
-            <select
-              id="type"
-              name="type"
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            >
-              <option value="material">Material</option>
-              <option value="labour">Labour</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="description" className="text-xs font-medium">
-              Description
-            </label>
-            <input
-              id="description"
-              name="description"
-              type="text"
-              required
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="quantity" className="text-xs font-medium">
-              Qty / hours
-            </label>
-            <input
-              id="quantity"
-              name="quantity"
-              type="number"
-              step="0.01"
-              defaultValue="1"
-              className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="unit_cost" className="text-xs font-medium">
-              Unit cost / rate
-            </label>
-            <input
-              id="unit_cost"
-              name="unit_cost"
-              type="number"
-              step="0.01"
-              defaultValue="0"
-              className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-          >
-            Add
-          </button>
-        </form>
-        )}
+        {canEditJob && <CostEntryForm action={boundAddCostEntry} payRate={payRate} />}
 
         {canLogExpenses && (
         <div className="mt-6 border-t border-surface-border pt-4">

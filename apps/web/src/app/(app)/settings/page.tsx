@@ -3,9 +3,16 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
+import { formatMoney } from '@/lib/money'
 import { CURRENCIES } from '@trade-assist/db'
 import type { Company, CompanyInvite, Profile, StaffPermissions } from '@trade-assist/db'
-import { regenerateCalendarToken, updateCompany, updateProfile, uploadCompanyLogo } from './actions'
+import {
+  regenerateCalendarToken,
+  updateCompany,
+  updateCompanyModules,
+  updateProfile,
+  uploadCompanyLogo,
+} from './actions'
 import {
   inviteTeamMember,
   removeMember,
@@ -26,7 +33,8 @@ export default async function SettingsPage({
   const supabase = await createClient()
 
   const currentProfile = await getCurrentProfile(supabase)
-  if (!currentProfile || !isCompanyAccount(currentProfile.role)) redirect('/jobs')
+  if (!currentProfile) redirect('/jobs')
+  const isCompany = isCompanyAccount(currentProfile.role)
 
   const {
     data: { user },
@@ -43,24 +51,48 @@ export default async function SettingsPage({
   const baseUrl = await getBaseUrl()
   const calendarFeedUrl = company ? `${baseUrl}/api/calendar/${company.calendar_token}` : null
 
-  const { data: teamData } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('company_id', profile.company_id)
-    .order('created_at')
+  let team: Profile[] = []
+  let pendingInvites: CompanyInvite[] = []
+  let payRatesByProfileId = new Map<string, number>()
 
-  const team = (teamData ?? []) as Profile[]
+  if (isCompany) {
+    const { data: teamData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .order('created_at')
+    team = (teamData ?? []) as Profile[]
+
+    const { data: invitesData } = await supabase
+      .from('company_invites')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false })
+    pendingInvites = (invitesData ?? []) as CompanyInvite[]
+
+    const { data: payRatesData } = await supabase
+      .from('staff_pay_rates')
+      .select('profile_id, pay_rate')
+      .in(
+        'profile_id',
+        team.map((m) => m.id)
+      )
+    payRatesByProfileId = new Map((payRatesData ?? []).map((r) => [r.profile_id, Number(r.pay_rate)]))
+  }
+
   const companyMember = team.find((m) => m.role === 'company')
   const staffMembers = team.filter((m) => m.role === 'staff')
 
-  const { data: invitesData } = await supabase
-    .from('company_invites')
-    .select('*')
-    .eq('company_id', profile.company_id)
-    .is('accepted_at', null)
-    .order('created_at', { ascending: false })
-
-  const pendingInvites = (invitesData ?? []) as CompanyInvite[]
+  let myPayRate: number | null = null
+  if (!isCompany) {
+    const { data: myRateRow } = await supabase
+      .from('staff_pay_rates')
+      .select('pay_rate')
+      .eq('profile_id', currentProfile.id)
+      .maybeSingle()
+    myPayRate = myRateRow ? Number(myRateRow.pay_rate) : null
+  }
 
   return (
     <div className="flex max-w-xl flex-col gap-8">
@@ -68,6 +100,7 @@ export default async function SettingsPage({
 
       {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
 
+      {isCompany && (
       <section className="rounded-lg border border-surface-border p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -82,7 +115,9 @@ export default async function SettingsPage({
           </Link>
         </div>
       </section>
+      )}
 
+      {isCompany && (
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Company</h2>
 
@@ -234,7 +269,9 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+      )}
 
+      {isCompany && (
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-2 text-sm font-medium">Calendar subscription</h2>
         <p className="mb-3 text-sm text-muted">
@@ -254,7 +291,65 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+      )}
 
+      {isCompany && (
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Modules</h2>
+        <p className="mb-4 text-sm text-muted">
+          Switch off any section your business doesn&apos;t use. Existing data is kept and reappears
+          immediately if you switch a module back on.
+        </p>
+        <form action={updateCompanyModules} className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_quotes_enabled"
+                defaultChecked={company?.modules_quotes_enabled ?? true}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Quotes
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_invoicing_enabled"
+                defaultChecked={company?.modules_invoicing_enabled ?? true}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Invoicing
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_expenses_enabled"
+                defaultChecked={company?.modules_expenses_enabled ?? true}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Expenses
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_reports_enabled"
+                defaultChecked={company?.modules_reports_enabled ?? true}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Reports
+            </label>
+          </div>
+          <button
+            type="submit"
+            className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+          >
+            Save modules
+          </button>
+        </form>
+      </section>
+      )}
+
+      {isCompany && (
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Team</h2>
 
@@ -282,7 +377,10 @@ export default async function SettingsPage({
                     Remove
                   </ConfirmSubmitButton>
                 </div>
-                <PermissionToggles member={member} action={updateMemberPermissions.bind(null, member.id)} />
+                <PermissionToggles
+                  member={{ ...member, pay_rate: payRatesByProfileId.get(member.id) ?? null }}
+                  action={updateMemberPermissions.bind(null, member.id)}
+                />
               </div>
             ))}
           </div>
@@ -328,6 +426,7 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+      )}
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Your profile</h2>
@@ -350,6 +449,14 @@ export default async function SettingsPage({
               {user?.email}
             </p>
           </div>
+          {!isCompany && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Hourly rate</label>
+              <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
+                {myPayRate !== null ? formatMoney(myPayRate, company?.currency ?? 'USD') : 'Not set'}
+              </p>
+            </div>
+          )}
           <button
             type="submit"
             className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
@@ -366,7 +473,7 @@ function PermissionToggles({
   member,
   action,
 }: {
-  member: StaffPermissions
+  member: StaffPermissions & { pay_rate: number | null }
   action: (formData: FormData) => void
 }) {
   return (
@@ -442,6 +549,18 @@ function PermissionToggles({
             <option value="view">View</option>
             <option value="full">Full access</option>
           </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium">Hourly pay rate</label>
+          <input
+            type="number"
+            name="pay_rate"
+            step="0.01"
+            min="0"
+            placeholder="Not set"
+            defaultValue={member.pay_rate ?? ''}
+            className="w-24 rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+          />
         </div>
       </div>
       <button

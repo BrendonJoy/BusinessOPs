@@ -16,6 +16,10 @@ export interface Company {
   gst_registered: boolean
   payment_details: string | null
   calendar_token: string
+  modules_quotes_enabled: boolean
+  modules_invoicing_enabled: boolean
+  modules_expenses_enabled: boolean
+  modules_reports_enabled: boolean
   created_at: string
 }
 
@@ -47,9 +51,16 @@ export interface CompanyInvite extends StaffPermissions {
   role: 'staff'
   token: string
   invited_by: string | null
+  pay_rate: number | null
   created_at: string
   expires_at: string
   accepted_at: string | null
+}
+
+export interface StaffPayRate {
+  profile_id: string
+  pay_rate: number
+  updated_at: string
 }
 
 export interface Customer {
