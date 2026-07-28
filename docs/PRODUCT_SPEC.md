@@ -1,15 +1,15 @@
-# Trade Assist Ltd — Product & Build Specification
+# BusinessOps (by JOYTECH) — Product & Build Specification
 
 ## 1. Overview
 
-Trade Assist is a job, staff, and cost-management platform built for tradespeople (builders, electricians, plumbers, and similar trades). It combines practical field usability with proper financial visibility — job costing, quoting, and profit tracking — aimed at owner-operators and small trade businesses who currently rely on spreadsheets, paper, or disconnected tools.
+BusinessOps is a job, staff, and cost-management platform built for tradespeople (builders, electricians, plumbers, and similar trades). It combines practical field usability with proper financial visibility — job costing, quoting, and profit tracking — aimed at owner-operators and small trade businesses who currently rely on spreadsheets, paper, or disconnected tools.
 
 - **Platforms:** Web application (primary, admin/owner-facing) + Mobile application (field-facing companion)
-- **Brand:** Black / grey / white base palette with red accents. Design principles: intuitive, easy to use, stable.
+- **Brand:** Dark Grey (Audi Daytona Grey) / Gloss Black / White palette. Design principles: intuitive, easy to use, stable.
 
 ## 2. MVP Scope (Phase 1 — Build This First)
 
-The MVP is Trade Assist Individual only, web app first, mobile app second. Trade Assist Business (multi-user, staff rostering) is explicitly out of scope for MVP and should be considered in the data model (so it can be added later) but not built now.
+The MVP is BusinessOps Individual only, web app first, mobile app second. BusinessOps Business (multi-user, staff rostering) is explicitly out of scope for MVP and should be considered in the data model (so it can be added later) but not built now.
 
 ### 2.1 Core entities
 
@@ -63,7 +63,7 @@ The MVP is Trade Assist Individual only, web app first, mobile app second. Trade
 
 ## 3. Phase 2 (Not MVP — design for, don't build yet)
 
-- Trade Assist Business tier: multi-user company accounts (4 additional admin profiles), job assignment to specific users, staff rostering/timesheets ("Trade Assist Staffing"), labour costs auto-populated from timesheets instead of manual entry
+- BusinessOps Business tier: multi-user company accounts (4 additional admin profiles), job assignment to specific users, staff rostering/timesheets ("BusinessOps Staffing"), labour costs auto-populated from timesheets instead of manual entry
 - In-app payment collection for invoices
 - Xero / Hnry integration: sync invoicing and payment collection to external accounting platforms
 
@@ -72,7 +72,7 @@ The MVP is Trade Assist Individual only, web app first, mobile app second. Trade
 - **Offline-first mobile:** core field actions (create job, add photo/note, capture location) must work with no connectivity and sync when back online
 - **Stability:** this is a tool tradespeople rely on mid-job — prioritise reliability over feature breadth
 - **Simplicity:** minimal training required; a tradesperson should be able to create a job in under a minute
-- **Design:** black/grey/white palette with red accents; clean, high-contrast, usable in bright outdoor light and with one hand on a phone
+- **Design:** Dark Grey (Audi Daytona Grey)/Gloss Black/White palette; clean, high-contrast, usable in bright outdoor light and with one hand on a phone
 
 ## 5. Open technical decisions (to confirm before/at build start)
 
@@ -84,4 +84,4 @@ The MVP is Trade Assist Individual only, web app first, mobile app second. Trade
 
 ## 6. Product context
 
-Trade Assist is being built by a founder with 10 years' hands-on trade experience (qualified Panel Beater) combined with a Bachelor of Business (Finance & Management) and a CPA Australia qualification — the product is intentionally shaped around real field workflows and proper job-level financial visibility, rather than being a generic scheduling tool with invoicing bolted on.
+BusinessOps is being built by JOYTECH, founded by someone with 10 years' hands-on trade experience (qualified Panel Beater) combined with a Bachelor of Business (Finance & Management) and a CPA Australia qualification — the product is intentionally shaped around real field workflows and proper job-level financial visibility, rather than being a generic scheduling tool with invoicing bolted on.
