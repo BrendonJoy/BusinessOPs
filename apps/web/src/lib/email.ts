@@ -9,7 +9,7 @@ function getResendClient(): Resend | null {
   return client
 }
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Trade Assist <onboarding@resend.dev>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'BusinessOps <onboarding@resend.dev>'
 
 type SendResult = { sent: true } | { sent: false; reason: 'not_configured' | 'send_failed'; message?: string }
 

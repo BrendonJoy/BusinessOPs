@@ -11,7 +11,7 @@ export default async function SignupPage({
   return (
     <div>
       <h1 className="mb-1 text-xl font-semibold">Create your account</h1>
-      <p className="mb-6 text-sm text-muted">Set up Trade Assist for your business.</p>
+      <p className="mb-6 text-sm text-muted">Set up BusinessOps for your business.</p>
 
       {error && (
         <p className="mb-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>

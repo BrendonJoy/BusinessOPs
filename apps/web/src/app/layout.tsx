@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trade Assist",
+  title: "BusinessOps",
   description: "Job, staff, and cost management for tradespeople",
 };
 

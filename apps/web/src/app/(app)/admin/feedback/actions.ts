@@ -54,7 +54,7 @@ export async function generateFeedbackDigest() {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system:
-        'You summarize a batch of user feedback messages for the founder of a software product, Trade Assist. Each message includes its id, category (idea or support), the company that sent it, and the message text. Produce a short narrative summary (2-4 sentences) of themes and patterns across all the messages. Also identify any messages describing something urgent -- broken functionality blocking someone\'s work, data loss risk, or a serious complaint -- and return their id with a short reason. Most feedback is NOT urgent; only flag genuinely pressing issues.',
+        'You summarize a batch of user feedback messages for the founder of a software product, BusinessOps. Each message includes its id, category (idea or support), the company that sent it, and the message text. Produce a short narrative summary (2-4 sentences) of themes and patterns across all the messages. Also identify any messages describing something urgent -- broken functionality blocking someone\'s work, data loss risk, or a serious complaint -- and return their id with a short reason. Most feedback is NOT urgent; only flag genuinely pressing issues.',
       tools: [
         {
           name: 'summarize_feedback',

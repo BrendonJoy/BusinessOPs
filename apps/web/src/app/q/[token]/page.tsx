@@ -40,7 +40,7 @@ export default async function PublicQuotePage({
   if (!result) notFound()
 
   const { quote, line_items, job, customer, company } = result
-  const companyName = company.name?.trim() || 'Trade Assist'
+  const companyName = company.name?.trim() || 'BusinessOps'
   const grandTotal = Number(quote.total) + (company.gst_registered ? Number(quote.tax_amount) : 0)
 
   return (

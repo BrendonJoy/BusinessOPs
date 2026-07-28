@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/jobs" className="flex items-center gap-2">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent" />
-            <span className="text-lg font-semibold tracking-tight">Trade Assist</span>
+            <span className="text-lg font-semibold tracking-tight">BusinessOps</span>
           </Link>
           <NavMenu isAdmin={isAdmin} />
         </div>

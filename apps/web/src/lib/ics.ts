@@ -43,10 +43,10 @@ export function buildIcsFeed(companyName: string, jobs: CalendarFeedJob[]): stri
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Trade Assist//Calendar Feed//EN',
+    'PRODID:-//BusinessOps//Calendar Feed//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${escapeText(`Trade Assist - ${companyName}`)}`,
+    `X-WR-CALNAME:${escapeText(`BusinessOps - ${companyName}`)}`,
   ]
 
   for (const job of jobs) {

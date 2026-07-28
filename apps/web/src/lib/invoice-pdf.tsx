@@ -193,7 +193,7 @@ export async function generateInvoicePdf(invoiceId: string): Promise<InvoicePdfR
     .maybeSingle()
 
   const pdfCompany: PdfCompany = {
-    name: company?.name ?? 'Trade Assist',
+    name: company?.name ?? 'BusinessOps',
     gst_number: company?.gst_number ?? null,
     address: company?.address ?? null,
     logo_url: company?.logo_url ?? null,
