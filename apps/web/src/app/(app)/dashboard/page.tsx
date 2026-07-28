@@ -6,12 +6,13 @@ import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency } from '@/lib/company'
 import { JOB_STATUS_GROUPS } from '@trade-assist/db'
 import type { Customer, CostEntry, Invoice, Quote, Job } from '@trade-assist/db'
+import StatDrilldown, { type DrilldownItem } from './StatDrilldown'
 
 type DashboardJob = Job & {
   customer: Pick<Customer, 'name'> | null
   cost_entries: Pick<CostEntry, 'total_cost'>[]
-  quotes: Pick<Quote, 'status' | 'total' | 'tax_amount' | 'superseded_at'>[]
-  invoices: Pick<Invoice, 'status' | 'total' | 'tax_amount' | 'superseded_at' | 'created_at'>[]
+  quotes: Pick<Quote, 'id' | 'status' | 'total' | 'tax_amount' | 'superseded_at'>[]
+  invoices: Pick<Invoice, 'id' | 'status' | 'total' | 'tax_amount' | 'superseded_at' | 'created_at'>[]
 }
 
 type AuditRow = {
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
     supabase
       .from('jobs')
       .select(
-        '*, customer:customers(name), cost_entries(total_cost), quotes(status, total, tax_amount, superseded_at), invoices(status, total, tax_amount, superseded_at, created_at)'
+        '*, customer:customers(name), cost_entries(total_cost), quotes(id, status, total, tax_amount, superseded_at), invoices(id, status, total, tax_amount, superseded_at, created_at)'
       ),
     supabase
       .from('job_audit_log')
@@ -70,14 +71,30 @@ export default async function DashboardPage() {
 
   const jobsToday = jobs.filter((j) => j.start_date === today && activeStatuses.includes(j.status)).length
 
-  const quotesAwaiting = jobs.reduce(
-    (count, j) => count + j.quotes.filter((q) => q.status === 'sent' && !q.superseded_at).length,
-    0
+  const quotesAwaitingItems: DrilldownItem[] = jobs.flatMap((j) =>
+    j.quotes
+      .filter((q) => q.status === 'sent' && !q.superseded_at)
+      .map((q) => ({
+        id: q.id,
+        jobId: j.id,
+        jobNumber: j.job_number,
+        customerName: j.customer?.name ?? null,
+        amount: Number(q.total) + Number(q.tax_amount),
+        linkParam: 'openQuote' as const,
+      }))
   )
 
-  const invoicesReady = jobs.reduce(
-    (count, j) => count + j.invoices.filter((inv) => inv.status === 'draft' && !inv.superseded_at).length,
-    0
+  const invoicesReadyItems: DrilldownItem[] = jobs.flatMap((j) =>
+    j.invoices
+      .filter((inv) => inv.status === 'draft' && !inv.superseded_at)
+      .map((inv) => ({
+        id: inv.id,
+        jobId: j.id,
+        jobNumber: j.job_number,
+        customerName: j.customer?.name ?? null,
+        amount: Number(inv.total) + Number(inv.tax_amount),
+        linkParam: 'openInvoice' as const,
+      }))
   )
 
   const jobsOverBudget = jobs.filter((j) => {
@@ -112,13 +129,6 @@ export default async function DashboardPage() {
 
   const recentActivity = (auditData ?? []) as unknown as AuditRow[]
 
-  const stats = [
-    { label: 'Jobs Today', value: jobsToday },
-    { label: 'Quotes Awaiting Approval', value: quotesAwaiting },
-    { label: 'Invoices Ready to Send', value: invoicesReady },
-    { label: 'Jobs Over Budget', value: jobsOverBudget },
-  ]
-
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -130,12 +140,16 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="rounded-lg border border-surface-border p-4">
-            <p className="text-2xl font-semibold">{stat.value}</p>
-            <p className="text-xs text-muted">{stat.label}</p>
-          </div>
-        ))}
+        <div className="rounded-lg border border-surface-border p-4">
+          <p className="text-2xl font-semibold">{jobsToday}</p>
+          <p className="text-xs text-muted">Jobs Today</p>
+        </div>
+        <StatDrilldown label="Quotes Awaiting Approval" items={quotesAwaitingItems} currency={currency} />
+        <StatDrilldown label="Invoices Ready to Send" items={invoicesReadyItems} currency={currency} />
+        <div className="rounded-lg border border-surface-border p-4">
+          <p className="text-2xl font-semibold">{jobsOverBudget}</p>
+          <p className="text-xs text-muted">Jobs Over Budget</p>
+        </div>
       </div>
 
       <div className="rounded-lg border border-surface-border p-4">
