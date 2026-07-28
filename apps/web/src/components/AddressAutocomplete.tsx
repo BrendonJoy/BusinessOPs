@@ -1,9 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 type Suggestion = { placeId: string; description: string }
 type ValueChange = { address: string; lat: number | null; lng: number | null }
+
+function subscribeNoop() {
+  return () => {}
+}
+
+function getGeolocationSupportSnapshot() {
+  return 'geolocation' in navigator
+}
+
+function getGeolocationSupportServerSnapshot() {
+  return false
+}
 
 export default function AddressAutocomplete({
   id,
@@ -31,9 +43,16 @@ export default function AddressAutocomplete({
   const [isOpen, setIsOpen] = useState(false)
   const [lat, setLat] = useState<number | null>(defaultLat ?? null)
   const [lng, setLng] = useState<number | null>(defaultLng ?? null)
+  const [isLocating, setIsLocating] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const sessionTokenRef = useRef<string>(crypto.randomUUID())
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const geolocationSupported = useSyncExternalStore(
+    subscribeNoop,
+    getGeolocationSupportSnapshot,
+    getGeolocationSupportServerSnapshot
+  )
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -88,23 +107,63 @@ export default function AddressAutocomplete({
     sessionTokenRef.current = crypto.randomUUID()
   }
 
+  function handleUseLocation() {
+    setLocationError(null)
+    setIsLocating(true)
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords
+        const res = await fetch(`/api/geocode?lat=${latitude}&lng=${longitude}`)
+        if (res.ok) {
+          const data = await res.json()
+          setText(data.address)
+          setLat(latitude)
+          setLng(longitude)
+          onValueChange?.({ address: data.address, lat: latitude, lng: longitude })
+        } else {
+          setLocationError("Couldn't resolve an address for your location.")
+        }
+        setIsLocating(false)
+      },
+      () => {
+        setLocationError('Could not access your location.')
+        setIsLocating(false)
+      }
+    )
+  }
+
   return (
     <div ref={containerRef} className="relative">
-      <input
-        id={id}
-        name={name}
-        type="text"
-        autoComplete="off"
-        value={text}
-        onChange={(e) => handleTextChange(e.target.value)}
-        onFocus={() => suggestions.length > 0 && setIsOpen(true)}
-        className={
-          className ??
-          'w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none'
-        }
-      />
-      {geoLatName && <input type="hidden" name={geoLatName} value={lat ?? ''} />}
-      {geoLngName && <input type="hidden" name={geoLngName} value={lng ?? ''} />}
+      <div className="flex items-center gap-2">
+        <input
+          id={id}
+          name={name}
+          type="text"
+          autoComplete="off"
+          value={text}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onFocus={() => suggestions.length > 0 && setIsOpen(true)}
+          className={
+            className ??
+            'w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none'
+          }
+        />
+        {geoLatName && <input type="hidden" name={geoLatName} value={lat ?? ''} />}
+        {geoLngName && <input type="hidden" name={geoLngName} value={lng ?? ''} />}
+
+        {geolocationSupported && (
+          <button
+            type="button"
+            onClick={handleUseLocation}
+            disabled={isLocating}
+            title="Use my current location"
+            className="shrink-0 rounded-md border border-surface-border px-3 py-2 text-sm hover:border-accent disabled:opacity-50"
+          >
+            {isLocating ? '…' : '📍'}
+          </button>
+        )}
+      </div>
 
       {isOpen && suggestions.length > 0 && (
         <ul className="absolute z-10 mt-1 w-full rounded-md border border-surface-border bg-background shadow-lg">
@@ -121,6 +180,7 @@ export default function AddressAutocomplete({
           ))}
         </ul>
       )}
+      {locationError && <p className="mt-1 text-xs text-accent">{locationError}</p>}
     </div>
   )
 }
