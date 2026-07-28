@@ -2,23 +2,26 @@
 
 export default function DeleteJobButton({
   jobNumber,
-  onDelete,
+  deleteJob,
 }: {
   jobNumber: string
-  onDelete: () => Promise<void>
+  deleteJob: (formData: FormData) => void
 }) {
-  async function handleClick() {
-    if (!confirm(`Permanently delete ${jobNumber}? This cannot be undone.`)) return
-    await onDelete()
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (!confirm(`Permanently delete ${jobNumber}? This cannot be undone.`)) {
+      e.preventDefault()
+    }
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="self-start text-sm text-accent hover:opacity-80"
-    >
-      Delete job permanently
-    </button>
+    <form action={deleteJob}>
+      <button
+        type="submit"
+        onClick={handleClick}
+        className="self-start text-sm text-accent hover:opacity-80"
+      >
+        Delete job permanently
+      </button>
+    </form>
   )
 }

@@ -230,7 +230,7 @@ export default async function JobDetailPage({
         </form>
 
         <div className="mt-4 border-t border-surface-border pt-4">
-          <DeleteJobButton jobNumber={job.job_number ?? 'this job'} onDelete={deleteJob.bind(null, job.id)} />
+          <DeleteJobButton jobNumber={job.job_number ?? 'this job'} deleteJob={deleteJob.bind(null, job.id)} />
         </div>
       </section>
 
