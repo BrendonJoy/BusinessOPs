@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency } from '@/lib/company'
 import type { Expense } from '@trade-assist/db'
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import { assignExpenseToJob, deleteExpense, uploadExpense } from './actions'
 
 type JobOption = { id: string; job_number: string | null }
@@ -112,11 +113,13 @@ export default async function ExpensesPage({
                     ) : (
                       <span className="text-sm text-muted">Receipt unavailable</span>
                     )}
-                    <form action={boundDelete}>
-                      <button type="submit" className="text-xs text-muted hover:text-accent">
-                        Remove
-                      </button>
-                    </form>
+                    <ConfirmSubmitButton
+                      action={boundDelete}
+                      confirmMessage="Permanently delete this receipt? This cannot be undone."
+                      className="text-xs text-muted hover:text-accent"
+                    >
+                      Remove
+                    </ConfirmSubmitButton>
                   </div>
 
                   <form action={boundAssign} className="flex flex-wrap items-end gap-3">

@@ -10,6 +10,7 @@ import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
 import DeleteJobButton from './DeleteJobButton'
 import JobAddressField from '@/components/JobAddressField'
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 
 type AuditEntry = {
   id: string
@@ -413,11 +414,13 @@ export default async function JobDetailPage({
                   ) : (
                     <span>{f.file_url.split('/').pop()}</span>
                   )}
-                  <form action={boundDeleteFile}>
-                    <button type="submit" className="text-xs text-muted hover:text-accent">
-                      Remove
-                    </button>
-                  </form>
+                  <ConfirmSubmitButton
+                    action={boundDeleteFile}
+                    confirmMessage="Permanently delete this file? This cannot be undone."
+                    className="text-xs text-muted hover:text-accent"
+                  >
+                    Remove
+                  </ConfirmSubmitButton>
                 </li>
               )
             })}
