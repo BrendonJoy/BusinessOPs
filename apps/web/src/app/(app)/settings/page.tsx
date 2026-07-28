@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { CURRENCIES } from '@trade-assist/db'
@@ -34,6 +35,21 @@ export default async function SettingsPage({
       <h1 className="text-xl font-semibold">Settings</h1>
 
       {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-medium">Customer details</h2>
+            <p className="text-sm text-muted">View, add, and update your saved customers.</p>
+          </div>
+          <Link
+            href="/customers"
+            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+          >
+            Customer Details
+          </Link>
+        </div>
+      </section>
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Company</h2>
