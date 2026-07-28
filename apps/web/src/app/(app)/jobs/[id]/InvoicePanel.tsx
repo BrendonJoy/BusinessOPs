@@ -4,10 +4,12 @@ import { useState } from 'react'
 import type { CostEntry, Invoice, InvoiceLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
+import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import {
   addInvoiceLineItemsBulk,
   createInvoice,
   createInvoiceVersion,
+  deleteInvoice,
   importCostEntry,
   removeInvoiceLineItem,
   updateInvoiceStatus,
@@ -83,13 +85,22 @@ export default function InvoicePanel({
                 Download PDF
               </a>
               {invoice.status === 'draft' ? (
-                <button
-                  type="button"
-                  onClick={() => openInvoicePanel(invoice.id)}
-                  className="ml-auto rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
-                >
-                  Edit
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openInvoicePanel(invoice.id)}
+                    className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                  >
+                    Edit
+                  </button>
+                  <ConfirmSubmitButton
+                    action={deleteInvoice.bind(null, invoice.id, jobId)}
+                    confirmMessage="Permanently delete this draft invoice? This cannot be undone."
+                    className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                  >
+                    Delete
+                  </ConfirmSubmitButton>
+                </div>
               ) : (
                 <form action={createInvoiceVersion.bind(null, invoice.id, jobId)} className="ml-auto">
                   <button

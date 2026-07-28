@@ -102,7 +102,7 @@ export default async function ExpensesPage({
           <div className="flex flex-col gap-4">
             {unassigned.map((expense) => {
               const boundAssign = assignExpenseToJob.bind(null, expense.id)
-              const boundDelete = deleteExpense.bind(null, expense.id, expense.file_path)
+              const boundDelete = deleteExpense.bind(null, expense.id, expense.file_path, undefined)
               return (
                 <div key={expense.id} className="rounded-md border border-surface-border p-3">
                   <div className="mb-3 flex items-center justify-between">

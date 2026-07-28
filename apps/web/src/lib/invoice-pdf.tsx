@@ -101,23 +101,19 @@ function InvoiceDocument({
               <Text style={styles.groupHeading}>{LINE_ITEM_TYPE_LABELS[type]}</Text>
               <View style={styles.tableHeader}>
                 <Text style={styles.colDescription}>Description</Text>
-                {type !== 'callout' && (
-                  <>
-                    <Text style={styles.colQty}>{type === 'labour' ? 'Hours' : 'Qty'}</Text>
-                    <Text style={styles.colPrice}>{type === 'labour' ? 'Rate' : 'Unit price'}</Text>
-                  </>
-                )}
+                <Text style={styles.colQty}>{type === 'callout' ? '' : type === 'labour' ? 'Hours' : 'Qty'}</Text>
+                <Text style={styles.colPrice}>
+                  {type === 'callout' ? '' : type === 'labour' ? 'Rate' : 'Unit price'}
+                </Text>
                 <Text style={styles.colTotal}>Total</Text>
               </View>
               {items.map((item) => (
                 <View key={item.id} style={styles.tableRow}>
                   <Text style={styles.colDescription}>{item.description}</Text>
-                  {type !== 'callout' && (
-                    <>
-                      <Text style={styles.colQty}>{item.quantity}</Text>
-                      <Text style={styles.colPrice}>{formatMoney(Number(item.unit_price), company.currency)}</Text>
-                    </>
-                  )}
+                  <Text style={styles.colQty}>{type === 'callout' ? '' : item.quantity}</Text>
+                  <Text style={styles.colPrice}>
+                    {type === 'callout' ? '' : formatMoney(Number(item.unit_price), company.currency)}
+                  </Text>
                   <Text style={styles.colTotal}>{formatMoney(Number(item.line_total), company.currency)}</Text>
                 </View>
               ))}

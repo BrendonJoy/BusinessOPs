@@ -76,16 +76,18 @@ export default async function PublicQuotePage({
             <div key={type} className="mt-6">
               <h3 className="mb-2 text-xs font-semibold text-muted">{LINE_ITEM_TYPE_LABELS[type]}</h3>
               <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-1/2" />
+                  <col className="w-1/6" />
+                  <col className="w-1/6" />
+                  <col className="w-1/6" />
+                </colgroup>
                 <thead className="text-muted">
                   <tr>
                     <th className="py-1 font-medium">Description</th>
-                    {type !== 'callout' && (
-                      <>
-                        <th className="py-1 font-medium">{type === 'labour' ? 'Hours' : 'Qty'}</th>
-                        <th className="py-1 font-medium">{type === 'labour' ? 'Rate' : 'Unit price'}</th>
-                      </>
-                    )}
+                    <th className="py-1 font-medium">{type === 'callout' ? '' : type === 'labour' ? 'Hours' : 'Qty'}</th>
+                    <th className="py-1 font-medium">{type === 'callout' ? '' : type === 'labour' ? 'Rate' : 'Unit price'}</th>
                     <th className="py-1 font-medium">Total</th>
                   </tr>
                 </thead>
@@ -93,12 +95,10 @@ export default async function PublicQuotePage({
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-surface-border">
                       <td className="py-2">{item.description}</td>
-                      {type !== 'callout' && (
-                        <>
-                          <td className="py-2">{item.quantity}</td>
-                          <td className="py-2">{formatMoney(Number(item.unit_price), company.currency)}</td>
-                        </>
-                      )}
+                      <td className="py-2">{type === 'callout' ? '' : item.quantity}</td>
+                      <td className="py-2">
+                        {type === 'callout' ? '' : formatMoney(Number(item.unit_price), company.currency)}
+                      </td>
                       <td className="py-2">{formatMoney(Number(item.line_total), company.currency)}</td>
                     </tr>
                   ))}

@@ -109,6 +109,19 @@ export async function removeInvoiceLineItem(lineItemId: string, jobId: string) {
   revalidatePath(`/jobs/${jobId}`)
 }
 
+// Only ever called for a draft invoice -- sent/paid/overdue invoices are real
+// financial records and must go through createInvoiceVersion instead. Relies
+// on the invoice_line_items FK cascade to clean up its line items.
+export async function deleteInvoice(invoiceId: string, jobId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('invoices').delete().eq('id', invoiceId).eq('status', 'draft')
+  if (error) errorRedirect(jobId, error.message)
+
+  await logJobAudit(supabase, jobId, 'Invoice deleted')
+
+  revalidatePath(`/jobs/${jobId}`)
+}
+
 // Only ever called for a non-draft invoice (editing a draft in place is
 // handled client-side by just opening the panel). Creates a new draft version
 // and supersedes this one.

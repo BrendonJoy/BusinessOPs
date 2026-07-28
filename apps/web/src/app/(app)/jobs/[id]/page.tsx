@@ -4,8 +4,9 @@ import { getBaseUrl } from '@/lib/url'
 import { formatMoney } from '@/lib/money'
 import { formatAuditTimestamp } from '@/lib/audit'
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '@trade-assist/db'
-import type { Customer, CostEntry, Job, JobFile } from '@trade-assist/db'
+import type { Customer, CostEntry, Expense, Job, JobFile } from '@trade-assist/db'
 import { addCostEntry, deleteCostEntry, deleteJob, deleteJobFile, updateJob, uploadJobFile } from './actions'
+import { assignExpenseToJob, deleteExpense, uploadExpenseForJob } from '@/app/(app)/expenses/actions'
 import QuotePanel, { type QuoteDetail } from './QuotePanel'
 import InvoicePanel, { type InvoiceDetail } from './InvoicePanel'
 import DeleteJobButton from './DeleteJobButton'
@@ -84,6 +85,20 @@ export default async function JobDetailPage({
     )
   )
 
+  const { data: unassignedExpensesData } = await supabase
+    .from('expenses')
+    .select('*')
+    .eq('job_id', job.id)
+    .is('cost_entry_id', null)
+    .order('created_at', { ascending: false })
+
+  const unassignedExpenses = await Promise.all(
+    ((unassignedExpensesData ?? []) as Expense[]).map(async (e) => {
+      const { data } = await supabase.storage.from('expense-receipts').createSignedUrl(e.file_path, 3600)
+      return { ...e, signedUrl: data?.signedUrl ?? null }
+    })
+  )
+
   const { data: quotesData } = await supabase
     .from('quotes')
     .select('*, quote_line_items(*)')
@@ -111,6 +126,7 @@ export default async function JobDetailPage({
   const boundUpdateJob = updateJob.bind(null, job.id)
   const boundAddCostEntry = addCostEntry.bind(null, job.id)
   const boundUploadJobFile = uploadJobFile.bind(null, job.id)
+  const boundUploadExpense = uploadExpenseForJob.bind(null, job.id)
 
   return (
     <div className="flex flex-col gap-8">
@@ -182,7 +198,7 @@ export default async function JobDetailPage({
                   name="start_time"
                   type="time"
                   defaultValue={job.start_time ?? ''}
-                  className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                 />
               </div>
             </div>
@@ -203,7 +219,7 @@ export default async function JobDetailPage({
                   name="finish_time"
                   type="time"
                   defaultValue={job.finish_time ?? ''}
-                  className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                 />
               </div>
             </div>
@@ -398,6 +414,134 @@ export default async function JobDetailPage({
             Add
           </button>
         </form>
+
+        <div className="mt-6 border-t border-surface-border pt-4">
+          <h3 className="mb-3 text-xs font-semibold text-muted">Add cost from receipt</h3>
+
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <form action={boundUploadExpense} className="flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                name="file"
+                accept="image/*,application/pdf"
+                required
+                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
+              />
+              <button
+                type="submit"
+                className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+              >
+                Upload
+              </button>
+            </form>
+            <form action={boundUploadExpense} className="flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                name="file"
+                accept="image/*"
+                capture="environment"
+                required
+                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
+              />
+              <button
+                type="submit"
+                className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+              >
+                Take photo
+              </button>
+            </form>
+          </div>
+
+          {unassignedExpenses.length > 0 && (
+            <div className="flex flex-col gap-4">
+              {unassignedExpenses.map((expense) => {
+                const boundAssignExpense = assignExpenseToJob.bind(null, expense.id)
+                const boundDeleteExpense = deleteExpense.bind(null, expense.id, expense.file_path, job.id)
+                return (
+                  <div key={expense.id} className="rounded-md border border-surface-border p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      {expense.signedUrl ? (
+                        <a
+                          href={expense.signedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-accent"
+                        >
+                          View receipt
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted">Receipt unavailable</span>
+                      )}
+                      <ConfirmSubmitButton
+                        action={boundDeleteExpense}
+                        confirmMessage="Permanently delete this receipt? This cannot be undone."
+                        className="text-xs text-muted hover:text-accent"
+                      >
+                        Remove
+                      </ConfirmSubmitButton>
+                    </div>
+
+                    <form action={boundAssignExpense} className="flex flex-wrap items-end gap-3">
+                      <input type="hidden" name="job_id" value={job.id} />
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor={`expense-description-${expense.id}`} className="text-xs font-medium">
+                          Description
+                        </label>
+                        <input
+                          id={`expense-description-${expense.id}`}
+                          name="description"
+                          type="text"
+                          defaultValue={expense.description}
+                          required
+                          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor={`expense-amount-${expense.id}`} className="text-xs font-medium">
+                          Amount paid
+                        </label>
+                        <input
+                          id={`expense-amount-${expense.id}`}
+                          name="amount"
+                          type="number"
+                          step="0.01"
+                          defaultValue={expense.amount}
+                          className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium">
+                          <input type="checkbox" name="gst_applies" />
+                          {taxLabel} applies
+                        </label>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor={`expense-type-${expense.id}`} className="text-xs font-medium">
+                          Type
+                        </label>
+                        <select
+                          id={`expense-type-${expense.id}`}
+                          name="type"
+                          defaultValue="material"
+                          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                        >
+                          <option value="material">Material</option>
+                          <option value="labour">Labour</option>
+                        </select>
+                      </div>
+                      <button
+                        type="submit"
+                        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+                      >
+                        Add as cost
+                      </button>
+                    </form>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="rounded-lg border border-surface-border p-4">

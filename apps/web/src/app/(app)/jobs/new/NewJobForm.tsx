@@ -380,7 +380,7 @@ export default function NewJobForm({
                 type="time"
                 value={form.startTime}
                 onChange={(e) => updateField('startTime', e.target.value)}
-                className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
             </div>
           </div>
@@ -403,7 +403,7 @@ export default function NewJobForm({
                 type="time"
                 value={form.finishTime}
                 onChange={(e) => updateField('finishTime', e.target.value)}
-                className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
             </div>
           </div>
