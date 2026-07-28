@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
 export async function createJob(formData: FormData) {
+  const customerId = String(formData.get('customer_id') ?? '').trim() || null
   const customerName = String(formData.get('customer_name') ?? '').trim()
   const customerEmail = String(formData.get('customer_email') ?? '').trim() || null
   const customerPhone = String(formData.get('customer_phone') ?? '').trim() || null
@@ -35,38 +36,58 @@ export async function createJob(formData: FormData) {
     redirect(`/jobs/new?error=${encodeURIComponent('Could not determine your company.')}`)
   }
 
-  const { data: existingCustomer } = await supabase
-    .from('customers')
-    .select('id')
-    .ilike('name', customerName)
-    .maybeSingle()
+  let resolvedCustomerId = customerId ?? undefined
 
-  let customerId = existingCustomer?.id as string | undefined
-
-  if (!customerId) {
-    const { data: createdCustomer, error: customerError } = await supabase
+  if (resolvedCustomerId) {
+    // Selected from the existing-customer list -- sync any edits made on this
+    // form back to their saved record instead of silently discarding them.
+    const { error: customerUpdateError } = await supabase
       .from('customers')
-      .insert({
-        company_id: profile.company_id,
+      .update({
         name: customerName,
         email: customerEmail,
         phone: customerPhone,
         address: customerAddress,
       })
-      .select('id')
-      .single()
+      .eq('id', resolvedCustomerId)
 
-    if (customerError || !createdCustomer) {
-      redirect(`/jobs/new?error=${encodeURIComponent(customerError?.message ?? 'Could not create customer.')}`)
+    if (customerUpdateError) {
+      redirect(`/jobs/new?error=${encodeURIComponent(customerUpdateError.message)}`)
     }
-    customerId = createdCustomer!.id
+  } else {
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .ilike('name', customerName)
+      .maybeSingle()
+
+    resolvedCustomerId = existingCustomer?.id as string | undefined
+
+    if (!resolvedCustomerId) {
+      const { data: createdCustomer, error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          company_id: profile.company_id,
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+          address: customerAddress,
+        })
+        .select('id')
+        .single()
+
+      if (customerError || !createdCustomer) {
+        redirect(`/jobs/new?error=${encodeURIComponent(customerError?.message ?? 'Could not create customer.')}`)
+      }
+      resolvedCustomerId = createdCustomer!.id
+    }
   }
 
   const { data: job, error: jobError } = await supabase
     .from('jobs')
     .insert({
       company_id: profile.company_id,
-      customer_id: customerId,
+      customer_id: resolvedCustomerId,
       address_line: addressLine,
       notes,
       start_date: startDate,

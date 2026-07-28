@@ -44,12 +44,20 @@ const EMPTY_FORM: FormValues = {
 
 type ChatMessage = { role: 'user' | 'assistant'; text: string }
 
+type CustomerOption = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  address: string | null
+}
+
 export default function NewJobForm({
   createJob,
   customers,
 }: {
   createJob: (formData: FormData) => void
-  customers: { name: string }[]
+  customers: CustomerOption[]
 }) {
   const [description, setDescription] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -60,6 +68,7 @@ export default function NewJobForm({
   const [sameAsCustomerAddress, setSameAsCustomerAddress] = useState(false)
   const [jobGeo, setJobGeo] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null })
   const [isGeocoding, setIsGeocoding] = useState(false)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
   const speechSupported = useSyncExternalStore(
     subscribeNoop,
     getSpeechSupportSnapshot,
@@ -70,6 +79,29 @@ export default function NewJobForm({
 
   function updateField<K extends keyof FormValues>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleCustomerNameChange(value: string) {
+    updateField('customerName', value)
+
+    const match = customers.find((c) => c.name.trim().toLowerCase() === value.trim().toLowerCase())
+
+    if (match) {
+      setSelectedCustomerId(match.id)
+      setForm((prev) => ({
+        ...prev,
+        customerName: value,
+        customerEmail: match.email ?? '',
+        customerPhone: match.phone ?? '',
+        customerAddress: match.address ?? '',
+      }))
+    } else {
+      setSelectedCustomerId(null)
+    }
+  }
+
+  function clearSelectedCustomer() {
+    setSelectedCustomerId(null)
   }
 
   async function toggleSameAsCustomerAddress(checked: boolean) {
@@ -130,11 +162,17 @@ export default function NewJobForm({
     }
 
     const data = result.data
+    const parsedName = data.customer_name ?? null
+    const match = parsedName
+      ? customers.find((c) => c.name.trim().toLowerCase() === parsedName.trim().toLowerCase())
+      : undefined
+    setSelectedCustomerId(match?.id ?? null)
+
     setForm((prev) => ({
       customerName: data.customer_name ?? prev.customerName,
-      customerEmail: data.customer_email ?? prev.customerEmail,
-      customerPhone: data.customer_phone ?? prev.customerPhone,
-      customerAddress: prev.customerAddress,
+      customerEmail: match?.email ?? data.customer_email ?? prev.customerEmail,
+      customerPhone: match?.phone ?? data.customer_phone ?? prev.customerPhone,
+      customerAddress: match?.address ?? prev.customerAddress,
       addressLine: data.address_line ?? prev.addressLine,
       startDate: data.start_date ?? prev.startDate,
       startTime: data.start_time ?? prev.startTime,
@@ -213,6 +251,7 @@ export default function NewJobForm({
       <form action={createJob} className="flex flex-col gap-4">
         <fieldset className="flex flex-col gap-4 rounded-lg border border-surface-border p-4">
           <legend className="px-1 text-sm font-medium">Customer</legend>
+          <input type="hidden" name="customer_id" value={selectedCustomerId ?? ''} />
           <div className="flex flex-col gap-1">
             <label htmlFor="customer_name" className="text-sm font-medium">
               Name
@@ -224,15 +263,24 @@ export default function NewJobForm({
               required
               list="customer-names"
               value={form.customerName}
-              onChange={(e) => updateField('customerName', e.target.value)}
+              onChange={(e) => handleCustomerNameChange(e.target.value)}
               className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />
             <datalist id="customer-names">
               {customers.map((c) => (
-                <option key={c.name} value={c.name} />
+                <option key={c.id} value={c.name} />
               ))}
             </datalist>
-            <p className="text-xs text-muted">Matches an existing customer by name, or creates a new one.</p>
+            {selectedCustomerId ? (
+              <p className="text-xs text-muted">
+                Existing customer — details below are saved to their record.{' '}
+                <button type="button" onClick={clearSelectedCustomer} className="text-accent hover:opacity-80">
+                  Not them? Create as new
+                </button>
+              </p>
+            ) : (
+              <p className="text-xs text-muted">Matches an existing customer by name, or creates a new one.</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">

@@ -9,7 +9,10 @@ export default async function NewJobPage({
 }) {
   const { error } = await searchParams
   const supabase = await createClient()
-  const { data: customers } = await supabase.from('customers').select('name').order('name')
+  const { data: customers } = await supabase
+    .from('customers')
+    .select('id, name, email, phone, address')
+    .order('name')
 
   return (
     <div className="max-w-xl">
