@@ -59,7 +59,7 @@ export default async function ExpensesPage({
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Upload receipt</h2>
         <div className="flex flex-wrap items-center gap-3">
-          <form action={uploadExpense} className="flex items-center gap-3">
+          <form action={uploadExpense} className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               name="file"
@@ -74,7 +74,7 @@ export default async function ExpensesPage({
               Upload
             </button>
           </form>
-          <form action={uploadExpense} className="flex items-center gap-3">
+          <form action={uploadExpense} className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               name="file"
@@ -207,6 +207,7 @@ export default async function ExpensesPage({
         {assigned.length === 0 ? (
           <p className="text-sm text-muted">No assigned expenses yet.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-muted">
               <tr>
@@ -243,6 +244,7 @@ export default async function ExpensesPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

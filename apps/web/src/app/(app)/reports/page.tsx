@@ -106,7 +106,7 @@ export default async function ReportsPage({
       {rows.length === 0 ? (
         <p className="text-sm text-muted">No jobs with a start date in this range.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-surface-border">
+        <div className="overflow-x-auto rounded-lg border border-surface-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface text-muted">
               <tr>

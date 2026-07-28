@@ -75,6 +75,7 @@ export default async function PublicQuotePage({
           return (
             <div key={type} className="mt-6">
               <h3 className="mb-2 text-xs font-semibold text-muted">{LINE_ITEM_TYPE_LABELS[type]}</h3>
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted">
                   <tr>
@@ -103,6 +104,7 @@ export default async function PublicQuotePage({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )
         })}

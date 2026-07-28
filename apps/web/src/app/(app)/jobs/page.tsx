@@ -108,7 +108,7 @@ export default async function JobsPage({
             : `No ${VIEW_LABELS[view].toLowerCase()} jobs.`}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-surface-border">
+        <div className="overflow-x-auto rounded-lg border border-surface-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface text-muted">
               <tr>

@@ -54,7 +54,7 @@ export default async function SettingsPage({
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Company</h2>
 
-        <div className="mb-4 flex items-center gap-4">
+        <div className="mb-4 flex flex-wrap items-center gap-4">
           {company?.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -67,7 +67,7 @@ export default async function SettingsPage({
               No logo
             </div>
           )}
-          <form action={uploadCompanyLogo} className="flex items-center gap-3">
+          <form action={uploadCompanyLogo} className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               name="logo"
@@ -151,7 +151,7 @@ export default async function SettingsPage({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <label htmlFor="tax_label" className="text-sm font-medium">
                 Tax label

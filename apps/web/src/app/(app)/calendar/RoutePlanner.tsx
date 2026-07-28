@@ -74,6 +74,7 @@ export default function RoutePlanner() {
             Suggested order for {plan.date} — total travel time ~{plan.totalTravelMinutes} min
           </p>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-muted">
               <tr>
@@ -106,6 +107,7 @@ export default function RoutePlanner() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {plan.skipped.length > 0 && (
             <p className="mt-2 text-xs text-muted">

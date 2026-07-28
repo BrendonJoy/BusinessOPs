@@ -164,7 +164,7 @@ export default async function JobDetailPage({
             customerAddress={job.customer?.address ?? null}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <label htmlFor="start_date" className="text-sm font-medium">
                 Start date
@@ -276,7 +276,8 @@ export default async function JobDetailPage({
         </div>
 
         {job.cost_entries.length > 0 && (
-          <table className="mb-4 w-full text-left text-sm">
+          <div className="mb-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
             <thead className="text-muted">
               <tr>
                 <th className="py-1 font-medium">Type</th>
@@ -335,6 +336,7 @@ export default async function JobDetailPage({
               })}
             </tbody>
           </table>
+          </div>
         )}
 
         <form action={boundAddCostEntry} className="flex flex-wrap items-end gap-3">
@@ -428,7 +430,7 @@ export default async function JobDetailPage({
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <form action={boundUploadJobFile} className="flex items-center gap-3">
+          <form action={boundUploadJobFile} className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               name="file"
@@ -442,7 +444,7 @@ export default async function JobDetailPage({
               Upload
             </button>
           </form>
-          <form action={boundUploadJobFile} className="flex items-center gap-3">
+          <form action={boundUploadJobFile} className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               name="file"

@@ -221,6 +221,7 @@ export default function InvoicePanel({
             )}
 
             {openInvoice.invoice_line_items.length > 0 && (
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-muted">
                   <tr>
@@ -253,6 +254,7 @@ export default function InvoicePanel({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
 
             {openInvoice.status === 'draft' && (

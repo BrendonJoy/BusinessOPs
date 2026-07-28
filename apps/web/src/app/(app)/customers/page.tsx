@@ -116,7 +116,7 @@ export default async function CustomersPage({
             {q ? 'No customers match your search.' : 'No customers yet.'}
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-surface-border">
+          <div className="overflow-x-auto rounded-lg border border-surface-border">
             <table className="w-full text-left text-sm">
               <thead className="bg-surface text-muted">
                 <tr>

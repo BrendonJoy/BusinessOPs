@@ -282,7 +282,7 @@ export default function NewJobForm({
               <p className="text-xs text-muted">Matches an existing customer by name, or creates a new one.</p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <label htmlFor="customer_email" className="text-sm font-medium">
                 Email
@@ -360,7 +360,7 @@ export default function NewJobForm({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label htmlFor="start_date" className="text-sm font-medium">
               Start date
