@@ -18,18 +18,29 @@ export default async function CalendarPage({
     today.getDate()
   ).padStart(2, '0')}`
 
+  const gridStart = gridDays[0]
+  const gridEnd = gridDays[gridDays.length - 1]
+
   const supabase = await createClient()
   const { data } = await supabase
     .from('jobs')
     .select('*, customer:customers(id, name)')
-    .gte('start_date', monthInfo.start)
-    .lte('start_date', monthInfo.end)
+    .lte('start_date', gridEnd)
+    .or(`finish_date.gte.${gridStart},and(finish_date.is.null,start_date.gte.${gridStart})`)
 
   const jobs = (data ?? []) as unknown as JobWithCustomer[]
 
+  // Jobs spanning more than one day render as a bar across their date range
+  // instead of a per-day chip -- everything else keeps the original
+  // one-chip-on-its-start-day behavior.
   const jobsByDate: Record<string, JobWithCustomer[]> = {}
+  const multiDayJobs: JobWithCustomer[] = []
   for (const job of jobs) {
     if (!job.start_date) continue
+    if (job.finish_date && job.finish_date !== job.start_date) {
+      multiDayJobs.push(job)
+      continue
+    }
     const list = jobsByDate[job.start_date] ?? []
     list.push(job)
     jobsByDate[job.start_date] = list
@@ -63,6 +74,7 @@ export default async function CalendarPage({
         monthParam={monthInfo.monthParam}
         todayStr={todayStr}
         jobsByDate={jobsByDate}
+        multiDayJobs={multiDayJobs}
       />
     </div>
   )
