@@ -16,6 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="text-lg font-semibold tracking-tight">Trade Assist</span>
           </Link>
           <nav className="flex items-center gap-4 text-sm">
+            <Link href="/dashboard" className="font-medium hover:text-accent">
+              Dashboard
+            </Link>
             <Link href="/jobs" className="font-medium hover:text-accent">
               Jobs
             </Link>
