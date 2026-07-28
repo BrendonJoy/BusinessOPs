@@ -129,7 +129,7 @@ export default function InvoicePanel({
       {openInvoice && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => openInvoicePanel(null)} />
-          <div className="relative flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto bg-background p-6 shadow-xl">
+          <div className="relative flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto bg-background p-6 shadow-xl">
             <button
               type="button"
               onClick={() => openInvoicePanel(null)}
