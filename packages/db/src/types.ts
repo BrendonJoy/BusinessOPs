@@ -20,6 +20,9 @@ export interface Company {
   modules_invoicing_enabled: boolean
   modules_expenses_enabled: boolean
   modules_reports_enabled: boolean
+  modules_timesheets_enabled: boolean
+  geofence_enabled: boolean
+  geofence_radius_meters: number
   created_at: string
 }
 
@@ -61,6 +64,33 @@ export interface StaffPayRate {
   profile_id: string
   pay_rate: number
   updated_at: string
+}
+
+export type TimesheetMiscCategory = 'travel' | 'admin' | 'break' | 'other'
+
+export const TIMESHEET_MISC_CATEGORIES: TimesheetMiscCategory[] = ['travel', 'admin', 'break', 'other']
+
+export const TIMESHEET_MISC_CATEGORY_LABELS: Record<TimesheetMiscCategory, string> = {
+  travel: 'Travel',
+  admin: 'Admin',
+  break: 'Break',
+  other: 'Other',
+}
+
+export interface TimesheetEntry {
+  id: string
+  company_id: string
+  profile_id: string
+  job_id: string | null
+  misc_category: TimesheetMiscCategory | null
+  clock_in: string
+  clock_out: string | null
+  clock_in_lat: number | null
+  clock_in_lng: number | null
+  clock_out_lat: number | null
+  clock_out_lng: number | null
+  cost_entry_id: string | null
+  created_at: string
 }
 
 export interface Customer {

@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/dashboard', label: 'Dashboard', companyOnly: true },
   { href: '/jobs', label: 'Jobs', companyOnly: false },
   { href: '/calendar', label: 'Calendar', companyOnly: false },
+  { href: '/timesheet', label: 'Timesheet', companyOnly: false },
   { href: '/reports', label: 'Reports', companyOnly: false },
   { href: '/expenses', label: 'Expenses', companyOnly: true },
   { href: '/settings', label: 'Settings', companyOnly: false },
@@ -21,12 +22,14 @@ export default function NavMenu({
   canViewReports,
   reportsModuleEnabled,
   expensesModuleEnabled,
+  timesheetsModuleEnabled,
 }: {
   isAdmin: boolean
   role: 'company' | 'staff'
   canViewReports: boolean
   reportsModuleEnabled: boolean
   expensesModuleEnabled: boolean
+  timesheetsModuleEnabled: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
@@ -35,6 +38,7 @@ export default function NavMenu({
   const visibleLinks = LINKS.filter((link) => {
     if (link.href === '/reports') return reportsModuleEnabled && (isCompanyAccount || canViewReports)
     if (link.href === '/expenses') return expensesModuleEnabled && isCompanyAccount
+    if (link.href === '/timesheet') return timesheetsModuleEnabled
     return isCompanyAccount || !link.companyOnly
   })
   const allLinks = isAdmin ? [...visibleLinks, { href: '/admin/feedback', label: 'Admin' }] : visibleLinks

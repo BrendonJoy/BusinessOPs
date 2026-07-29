@@ -1,9 +1,10 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
-import { getCurrentProfile, canViewReports } from '@/lib/roles'
+import { getCurrentProfile, canViewReports, isCompanyAccount } from '@/lib/roles'
 import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
 
 type ReportJob = Job & {
@@ -55,7 +56,14 @@ export default async function ReportsPage({
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold">Reports</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Reports</h1>
+        {isCompanyAccount(profile?.role) && (
+          <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
+            View staff timesheets →
+          </Link>
+        )}
+      </div>
 
       <form className="mb-6 flex flex-wrap items-end gap-3" method="get">
         <div className="flex flex-col gap-1">

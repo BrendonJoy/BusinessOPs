@@ -22,6 +22,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
   modules_invoicing_enabled: boolean
   modules_expenses_enabled: boolean
   modules_reports_enabled: boolean
+  modules_timesheets_enabled: boolean
 }> {
   const {
     data: { user },
@@ -32,6 +33,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
     modules_invoicing_enabled: true,
     modules_expenses_enabled: true,
     modules_reports_enabled: true,
+    modules_timesheets_enabled: true,
   }
 
   if (!user) return defaults
@@ -39,7 +41,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
   const { data } = await supabase
     .from('profiles')
     .select(
-      'company:companies(modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled, modules_reports_enabled)'
+      'company:companies(modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled, modules_reports_enabled, modules_timesheets_enabled)'
     )
     .eq('id', user.id)
     .maybeSingle()
@@ -49,6 +51,32 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
     modules_invoicing_enabled: boolean
     modules_expenses_enabled: boolean
     modules_reports_enabled: boolean
+    modules_timesheets_enabled: boolean
+  } | null
+
+  return company ?? defaults
+}
+
+export async function getGeofenceSettings(
+  supabase: SupabaseClient
+): Promise<{ geofence_enabled: boolean; geofence_radius_meters: number }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const defaults = { geofence_enabled: false, geofence_radius_meters: 200 }
+
+  if (!user) return defaults
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('company:companies(geofence_enabled, geofence_radius_meters)')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const company = data?.company as unknown as {
+    geofence_enabled: boolean
+    geofence_radius_meters: number
   } | null
 
   return company ?? defaults

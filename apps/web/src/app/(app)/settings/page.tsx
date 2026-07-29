@@ -10,6 +10,7 @@ import {
   regenerateCalendarToken,
   updateCompany,
   updateCompanyModules,
+  updateGeofenceSettings,
   updateProfile,
   uploadCompanyLogo,
 } from './actions'
@@ -338,12 +339,61 @@ export default async function SettingsPage({
               />
               Reports
             </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_timesheets_enabled"
+                defaultChecked={company?.modules_timesheets_enabled ?? true}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Timesheets
+            </label>
           </div>
           <button
             type="submit"
             className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
           >
             Save modules
+          </button>
+        </form>
+      </section>
+      )}
+
+      {isCompany && (
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Timesheets</h2>
+        <p className="mb-4 text-sm text-muted">
+          Optionally require staff to be physically near a job&apos;s address to clock in or out.
+        </p>
+        <form action={updateGeofenceSettings} className="flex flex-col gap-3">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              name="geofence_enabled"
+              defaultChecked={company?.geofence_enabled ?? false}
+              className="h-4 w-4 rounded border-surface-border"
+            />
+            Require staff to be within range of the job site to clock in/out
+          </label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="geofence_radius_meters" className="text-xs font-medium">
+              Radius (meters)
+            </label>
+            <input
+              id="geofence_radius_meters"
+              name="geofence_radius_meters"
+              type="number"
+              min="1"
+              step="1"
+              defaultValue={company?.geofence_radius_meters ?? 200}
+              className="w-32 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+          >
+            Save timesheet settings
           </button>
         </form>
       </section>

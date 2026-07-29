@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             canViewReports={Boolean(profile?.can_view_reports)}
             reportsModuleEnabled={modules.modules_reports_enabled}
             expensesModuleEnabled={modules.modules_expenses_enabled}
+            timesheetsModuleEnabled={modules.modules_timesheets_enabled}
           />
         </div>
       </header>
