@@ -62,6 +62,10 @@ export default async function AdminFeedbackPage() {
             </button>
           </form>
         </div>
+        <p className="mb-3 text-xs text-muted">
+          A report is also generated and emailed to platform admins automatically each morning when
+          there&apos;s new feedback.
+        </p>
 
         {digests.length === 0 ? (
           <p className="text-sm text-muted">No reports generated yet.</p>
@@ -75,7 +79,7 @@ export default async function AdminFeedbackPage() {
                 </div>
                 <p className="mb-2">{d.summary}</p>
                 {d.urgent_items.length > 0 && (
-                  <div className="rounded-md bg-accent/10 p-2">
+                  <div className="mb-2 rounded-md bg-accent/10 p-2">
                     <p className="mb-1 text-xs font-medium text-accent">Urgent</p>
                     <ul className="flex flex-col gap-1">
                       {d.urgent_items.map((item, i) => (
@@ -84,6 +88,18 @@ export default async function AdminFeedbackPage() {
                             {messageById.get(item.message_id)?.company?.name ?? 'Unknown company'}:
                           </span>{' '}
                           {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(d.suggested_actions ?? []).length > 0 && (
+                  <div className="rounded-md border border-surface-border p-2">
+                    <p className="mb-1 text-xs font-medium">Suggested actions</p>
+                    <ul className="flex flex-col gap-1">
+                      {d.suggested_actions.map((action, i) => (
+                        <li key={i} className="text-xs">
+                          <span className="font-medium">{action.title}</span> — {action.suggestion}
                         </li>
                       ))}
                     </ul>

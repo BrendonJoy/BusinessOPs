@@ -62,6 +62,60 @@ export async function sendTeamInviteEmail(params: {
   return { sent: true }
 }
 
+export async function sendFeedbackDigestEmail(params: {
+  to: string
+  date: string
+  messageCount: number
+  summary: string
+  urgentMessages: { reason: string; category: string; message: string; companyName: string }[]
+  suggestedActions: { title: string; suggestion: string }[]
+}): Promise<SendResult> {
+  const resend = getResendClient()
+  if (!resend) return { sent: false, reason: 'not_configured' }
+
+  const urgentHtml = params.urgentMessages.length
+    ? `
+      <h3 style="color:#b91c1c;margin-bottom:4px;">Urgent</h3>
+      <ul>
+        ${params.urgentMessages
+          .map(
+            (item) =>
+              `<li><strong>${item.companyName}</strong> (${item.category}): ${item.message}<br /><em>Why urgent: ${item.reason}</em></li>`
+          )
+          .join('')}
+      </ul>
+    `
+    : ''
+
+  const actionsHtml = params.suggestedActions.length
+    ? `
+      <h3 style="margin-bottom:4px;">Suggested actions</h3>
+      <ul>
+        ${params.suggestedActions
+          .map((action) => `<li><strong>${action.title}</strong> — ${action.suggestion}</li>`)
+          .join('')}
+      </ul>
+    `
+    : ''
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: params.to,
+    subject: `BusinessOps feedback digest — ${params.date} (${params.messageCount} new)`,
+    html: `
+      <p>${params.messageCount} new feedback message(s) since the last digest.</p>
+      <h3 style="margin-bottom:4px;">Summary</h3>
+      <p>${params.summary}</p>
+      ${urgentHtml}
+      ${actionsHtml}
+      <p style="color:#6b7280;font-size:12px;">Full inbox: your BusinessOps admin feedback page.</p>
+    `,
+  })
+
+  if (error) return { sent: false, reason: 'send_failed', message: error.message }
+  return { sent: true }
+}
+
 export async function sendInvoiceEmail(params: {
   to: string
   customerName: string
