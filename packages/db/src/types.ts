@@ -232,10 +232,19 @@ export interface QuoteLineItem {
   created_at: string
 }
 
+export type InvoiceType = 'standard' | 'deposit' | 'final'
+
+export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
+  standard: 'Invoice',
+  deposit: 'Deposit invoice',
+  final: 'Final invoice',
+}
+
 export interface Invoice {
   id: string
   job_id: string
   status: InvoiceStatus
+  invoice_type: InvoiceType
   total: number
   tax_rate: number
   tax_amount: number

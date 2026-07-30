@@ -22,6 +22,14 @@ import CostEntryForm from './CostEntryForm'
 import DeleteJobButton from './DeleteJobButton'
 import JobAddressField from '@/components/JobAddressField'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
+import FileUploadButtons from '@/components/FileUploadButtons'
+
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'avif']
+
+function isImageFile(path: string): boolean {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  return IMAGE_EXTENSIONS.includes(ext)
+}
 
 type AuditEntry = {
   id: string
@@ -206,6 +214,55 @@ export default async function JobDetailPage({
           </span>
         </div>
       </div>
+
+      <section className="rounded-lg border border-surface-border p-4">
+        <h2 className="mb-4 text-sm font-medium">Photos &amp; files</h2>
+
+        {filesWithUrls.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {filesWithUrls.map((f) => {
+              const boundDeleteFile = deleteJobFile.bind(null, job.id, f.id, f.file_url)
+              const fileName = f.file_url.split('/').pop() ?? 'file'
+              return (
+                <div key={f.id} className="flex flex-col gap-1">
+                  <a
+                    href={f.signedUrl ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block overflow-hidden rounded-md border border-surface-border hover:border-accent"
+                  >
+                    {f.signedUrl && isImageFile(f.file_url) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={f.signedUrl} alt={fileName} className="h-28 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-28 w-full flex-col items-center justify-center gap-1 bg-surface px-2">
+                        <span className="text-2xl">📄</span>
+                        <span className="w-full truncate text-center text-xs text-muted">{fileName}</span>
+                      </div>
+                    )}
+                  </a>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs text-muted">{fileName}</span>
+                    {canEditJob && (
+                      <ConfirmSubmitButton
+                        action={boundDeleteFile}
+                        confirmMessage="Permanently delete this file? This cannot be undone."
+                        className="shrink-0 text-xs text-muted hover:text-accent"
+                      >
+                        Remove
+                      </ConfirmSubmitButton>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {filesWithUrls.length === 0 && <p className="mb-4 text-sm text-muted">No photos or files yet.</p>}
+
+        {canEditJob && <FileUploadButtons action={boundUploadJobFile} camera />}
+      </section>
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Details</h2>
@@ -484,38 +541,13 @@ export default async function JobDetailPage({
         <div className="mt-6 border-t border-surface-border pt-4">
           <h3 className="mb-3 text-xs font-semibold text-muted">Add cost from receipt</h3>
 
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <form action={boundUploadExpense} className="flex flex-wrap items-center gap-3">
-              <input
-                type="file"
-                name="file"
-                accept="image/*,application/pdf"
-                required
-                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-              />
-              <button
-                type="submit"
-                className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-              >
-                Upload
-              </button>
-            </form>
-            <form action={boundUploadExpense} className="flex flex-wrap items-center gap-3">
-              <input
-                type="file"
-                name="file"
-                accept="image/*"
-                capture="environment"
-                required
-                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-              />
-              <button
-                type="submit"
-                className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-              >
-                Take photo
-              </button>
-            </form>
+          <div className="mb-4">
+            <FileUploadButtons
+              action={boundUploadExpense}
+              accept="image/*,application/pdf"
+              camera
+              label="Upload receipt"
+            />
           </div>
 
           {unassignedExpenses.length > 0 && (
@@ -607,73 +639,6 @@ export default async function JobDetailPage({
               })}
             </div>
           )}
-        </div>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-surface-border p-4">
-        <h2 className="mb-4 text-sm font-medium">Photos &amp; files</h2>
-
-        {filesWithUrls.length > 0 && (
-          <ul className="mb-4 flex flex-col gap-2 text-sm">
-            {filesWithUrls.map((f) => {
-              const boundDeleteFile = deleteJobFile.bind(null, job.id, f.id, f.file_url)
-              return (
-                <li key={f.id} className="flex items-center justify-between gap-4">
-                  {f.signedUrl ? (
-                    <a href={f.signedUrl} target="_blank" rel="noreferrer" className="text-accent">
-                      {f.file_url.split('/').pop()}
-                    </a>
-                  ) : (
-                    <span>{f.file_url.split('/').pop()}</span>
-                  )}
-                  {canEditJob && (
-                    <ConfirmSubmitButton
-                      action={boundDeleteFile}
-                      confirmMessage="Permanently delete this file? This cannot be undone."
-                      className="text-xs text-muted hover:text-accent"
-                    >
-                      Remove
-                    </ConfirmSubmitButton>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-
-        {canEditJob && (
-        <div className="flex flex-wrap items-center gap-3">
-          <form action={boundUploadJobFile} className="flex flex-wrap items-center gap-3">
-            <input
-              type="file"
-              name="file"
-              required
-              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-            >
-              Upload
-            </button>
-          </form>
-          <form action={boundUploadJobFile} className="flex flex-wrap items-center gap-3">
-            <input
-              type="file"
-              name="file"
-              accept="image/*"
-              capture="environment"
-              required
-              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-            >
-              Take photo
-            </button>
-          </form>
         </div>
         )}
       </section>

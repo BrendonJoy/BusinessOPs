@@ -58,9 +58,51 @@ export async function updateInvoiceTaxRate(invoiceId: string, jobId: string, for
 
 export async function createInvoice(jobId: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('invoices').insert({ job_id: jobId })
-  if (error) errorRedirect(jobId, error.message)
-  await logJobAudit(supabase, jobId, 'Invoice created')
+
+  // A job with a deposit invoice raised gets a FINAL (balance) invoice next,
+  // with the deposit automatically deducted -- unless a final invoice
+  // already exists (never deduct the same deposit twice).
+  const { data: existing } = await supabase
+    .from('invoices')
+    .select('invoice_type, total, tax_amount')
+    .eq('job_id', jobId)
+    .is('superseded_at', null)
+
+  const depositInvoice = (existing ?? []).find((inv) => inv.invoice_type === 'deposit')
+  const hasFinal = (existing ?? []).some((inv) => inv.invoice_type === 'final')
+  const isFinal = Boolean(depositInvoice) && !hasFinal
+
+  const { data: created, error } = await supabase
+    .from('invoices')
+    .insert({ job_id: jobId, invoice_type: isFinal ? 'final' : 'standard' })
+    .select('id, tax_rate')
+    .single()
+  if (error || !created) errorRedirect(jobId, error?.message ?? 'Could not create invoice.')
+
+  if (isFinal && depositInvoice) {
+    // The deposit invoice's total is tax-inclusive (its own tax_rate is 0).
+    // Line items are ex-tax and this invoice adds tax on the sum, so the
+    // credit goes in ex-tax -- making the final's tax-inclusive total come
+    // out to exactly (full amount - deposit collected).
+    const depositTotal = Number(depositInvoice.total) + Number(depositInvoice.tax_amount)
+    const taxRate = Number(created!.tax_rate)
+    const creditExTax = Math.round((depositTotal / (1 + taxRate / 100)) * 100) / 100
+
+    const { error: creditError } = await supabase.from('invoice_line_items').insert({
+      invoice_id: created!.id,
+      item_type: 'other',
+      description: 'Less deposit received',
+      quantity: 1,
+      unit_price: -creditExTax,
+      source: 'deposit_credit',
+    })
+    if (creditError) errorRedirect(jobId, creditError.message)
+
+    await logJobAudit(supabase, jobId, 'Final invoice created (deposit deducted)')
+  } else {
+    await logJobAudit(supabase, jobId, 'Invoice created')
+  }
+
   revalidatePath(`/jobs/${jobId}`)
 }
 

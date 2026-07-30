@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { INVOICE_TYPE_LABELS } from '@trade-assist/db'
 import type { AccessLevel, CostEntry, Invoice, InvoiceLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
@@ -85,6 +86,11 @@ export default function InvoicePanel({
               <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium capitalize">
                 {invoice.status}
               </span>
+              {invoice.invoice_type !== 'standard' && (
+                <span className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
+                  {INVOICE_TYPE_LABELS[invoice.invoice_type]}
+                </span>
+              )}
               <span>
                 Total: <span className="font-medium">{formatMoney(grandTotal(invoice), currency)}</span>
               </span>
@@ -157,7 +163,7 @@ export default function InvoicePanel({
               ← Back
             </button>
 
-            <h2 className="text-lg font-semibold">Invoice</h2>
+            <h2 className="text-lg font-semibold">{INVOICE_TYPE_LABELS[openInvoice.invoice_type]}</h2>
 
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium capitalize">

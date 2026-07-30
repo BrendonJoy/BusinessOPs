@@ -5,6 +5,7 @@ import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { Expense } from '@trade-assist/db'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
+import FileUploadButtons from '@/components/FileUploadButtons'
 import { assignExpenseToJob, deleteExpense, uploadExpense } from './actions'
 
 type JobOption = { id: string; job_number: string | null }
@@ -64,39 +65,12 @@ export default async function ExpensesPage({
 
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Upload receipt</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <form action={uploadExpense} className="flex flex-wrap items-center gap-3">
-            <input
-              type="file"
-              name="file"
-              accept="image/*,application/pdf"
-              required
-              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-            >
-              Upload
-            </button>
-          </form>
-          <form action={uploadExpense} className="flex flex-wrap items-center gap-3">
-            <input
-              type="file"
-              name="file"
-              accept="image/*"
-              capture="environment"
-              required
-              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-            >
-              Take photo
-            </button>
-          </form>
-        </div>
+        <FileUploadButtons
+          action={uploadExpense}
+          accept="image/*,application/pdf"
+          camera
+          label="Upload receipt"
+        />
       </section>
 
       <section className="rounded-lg border border-surface-border p-4">

@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
-import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
+import { INVOICE_TYPE_LABELS, LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import type { Invoice, InvoiceLineItem } from '@trade-assist/db'
 
 type InvoicePdfData = Invoice & {
@@ -76,7 +76,9 @@ function InvoiceDocument({
           {company.gst_registered && company.gst_number && (
             <Text style={styles.muted}>GST/Tax number: {company.gst_number}</Text>
           )}
-          <Text style={styles.muted}>Invoice for {invoice.jobs.job_number ?? 'job'}</Text>
+          <Text style={styles.muted}>
+            {INVOICE_TYPE_LABELS[invoice.invoice_type]} for {invoice.jobs.job_number ?? 'job'}
+          </Text>
         </View>
 
         <View style={styles.section}>
@@ -87,7 +89,7 @@ function InvoiceDocument({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.heading}>Invoice</Text>
+          <Text style={styles.heading}>{INVOICE_TYPE_LABELS[invoice.invoice_type]}</Text>
           <Text style={styles.muted}>Status: {invoice.status}</Text>
           <Text style={styles.muted}>Date: {new Date(invoice.created_at).toLocaleDateString()}</Text>
         </View>

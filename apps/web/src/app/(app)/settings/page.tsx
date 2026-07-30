@@ -22,6 +22,7 @@ import {
   updateMemberPermissions,
 } from './team-actions'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
+import FileUploadButtons from '@/components/FileUploadButtons'
 
 type ProfileWithCompany = Profile & { company: Company | null }
 
@@ -135,21 +136,12 @@ export default async function SettingsPage({
               No logo
             </div>
           )}
-          <form action={uploadCompanyLogo} className="flex flex-wrap items-center gap-3">
-            <input
-              type="file"
-              name="logo"
-              accept="image/*"
-              required
-              className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
-            >
-              Upload
-            </button>
-          </form>
+          <FileUploadButtons
+            action={uploadCompanyLogo}
+            accept="image/*"
+            label="Upload logo"
+            inputName="logo"
+          />
         </div>
 
         <form action={updateCompany} className="flex flex-col gap-4">
