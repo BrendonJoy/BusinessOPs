@@ -17,7 +17,7 @@ export type JobCreateFields = {
   finishTime?: string | null
   geoLat?: number | null
   geoLng?: number | null
-  assignedUserId?: string | null
+  assignedUserIds?: string[]
 }
 
 export type JobCreateResult =
@@ -115,13 +115,20 @@ export async function createJobRecord(
       finish_time: fields.finishTime ?? null,
       geo_lat: geoLat,
       geo_lng: geoLng,
-      assigned_user_id: fields.assignedUserId ?? null,
     })
     .select('id, job_number')
     .single()
 
   if (jobError || !job) {
     return { error: jobError?.message ?? 'Could not create job.' }
+  }
+
+  if (fields.assignedUserIds && fields.assignedUserIds.length > 0) {
+    const { error: assignError } = await supabase.rpc('set_job_assignments', {
+      p_job_id: job.id,
+      p_profile_ids: fields.assignedUserIds,
+    })
+    if (assignError) return { error: `Job created, but assignment failed: ${assignError.message}` }
   }
 
   return { jobId: job.id, jobNumber: job.job_number, customerName }

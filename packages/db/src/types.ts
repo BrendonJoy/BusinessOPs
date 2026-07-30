@@ -160,7 +160,6 @@ export interface Job {
   company_id: string
   job_number: string | null
   customer_id: string | null
-  assigned_user_id: string | null
   status: JobStatus
   address_line: string | null
   geo_lat: number | null

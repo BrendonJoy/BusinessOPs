@@ -56,12 +56,17 @@ export async function updateJob(jobId: string, formData: FormData) {
 
 // Separate from updateJob on purpose -- "Scheduling" (can_schedule) is a
 // distinct permission from "Edit jobs" (can_edit_jobs), and the assigned-to
-// dropdown is a narrow standalone form that only ever submits this one field.
+// checkbox list is a narrow standalone form that only ever submits this one
+// field. Writes go through the set_job_assignments RPC (the join table has
+// no direct write policies).
 export async function updateJobAssignment(jobId: string, formData: FormData) {
   const supabase = await createClient()
-  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
+  const assignedUserIds = formData.getAll('assigned_user_ids').map(String).filter(Boolean)
 
-  const { error } = await supabase.from('jobs').update({ assigned_user_id: assignedUserId }).eq('id', jobId)
+  const { error } = await supabase.rpc('set_job_assignments', {
+    p_job_id: jobId,
+    p_profile_ids: assignedUserIds,
+  })
   if (error) errorRedirect(jobId, error.message)
 
   await logJobAudit(supabase, jobId, 'Assignment updated')

@@ -51,7 +51,7 @@ type JobDetail = Job & {
     modules_expenses_enabled: boolean
   }
   job_audit_log: AuditEntry[]
-  assigned_profile: { full_name: string | null; email: string } | null
+  job_assignments: { profile_id: string; profile: { full_name: string | null; email: string } | null }[]
 }
 
 export default async function JobDetailPage({
@@ -68,7 +68,7 @@ export default async function JobDetailPage({
   const { data } = await supabase
     .from('jobs')
     .select(
-      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered, modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled), job_audit_log(id, action, created_at, profile:profiles(full_name)), assigned_profile:profiles!jobs_assigned_user_id_fkey(full_name, email)'
+      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered, modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled), job_audit_log(id, action, created_at, profile:profiles(full_name)), job_assignments(profile_id, profile:profiles(full_name, email))'
     )
     .eq('id', id)
     .maybeSingle()
@@ -114,6 +114,7 @@ export default async function JobDetailPage({
     teamOptions = team ?? []
   }
 
+  const assignedIds = new Set(job.job_assignments.map((a) => a.profile_id))
   const currency = job.company.currency
   const taxLabel = job.company.tax_label
   const gstRegistered = job.company.gst_registered
@@ -393,30 +394,48 @@ export default async function JobDetailPage({
         <div className="mt-4 border-t border-surface-border pt-4">
           <label className="mb-1 block text-sm font-medium">Assigned to</label>
           {canManageAssignment ? (
-            <form action={updateJobAssignment.bind(null, job.id)} className="flex flex-wrap items-center gap-2">
-              <select
-                name="assigned_user_id"
-                defaultValue={job.assigned_user_id ?? ''}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              >
-                <option value="">Unassigned</option>
-                {teamOptions.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.full_name ?? member.email}
-                  </option>
-                ))}
-              </select>
+            <form action={updateJobAssignment.bind(null, job.id)} className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 rounded-md border border-surface-border px-3 py-2">
+                {teamOptions.length === 0 ? (
+                  <p className="text-sm text-muted">No team members yet.</p>
+                ) : (
+                  teamOptions.map((member) => (
+                    <label key={member.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="assigned_user_ids"
+                        value={member.id}
+                        defaultChecked={assignedIds.has(member.id)}
+                      />
+                      {member.full_name ?? member.email}
+                    </label>
+                  ))
+                )}
+              </div>
               <button
                 type="submit"
-                className="rounded-md border border-surface-border px-3 py-2 text-xs font-medium hover:border-accent"
+                className="self-start rounded-md border border-surface-border px-3 py-2 text-xs font-medium hover:border-accent"
               >
                 Save
               </button>
             </form>
           ) : (
-            <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
-              {job.assigned_profile?.full_name ?? job.assigned_profile?.email ?? 'Unassigned'}
-            </p>
+            <div className="flex flex-wrap gap-2">
+              {job.job_assignments.length === 0 ? (
+                <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
+                  Unassigned
+                </p>
+              ) : (
+                job.job_assignments.map((a) => (
+                  <span
+                    key={a.profile_id}
+                    className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm"
+                  >
+                    {a.profile?.full_name ?? a.profile?.email ?? 'Team member'}
+                  </span>
+                ))
+              )}
+            </div>
           )}
         </div>
 

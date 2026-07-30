@@ -25,7 +25,7 @@ export async function createJob(formData: FormData) {
     finishTime: String(formData.get('finish_time') ?? '') || null,
     geoLat: geoLatRaw ? Number(geoLatRaw) : null,
     geoLng: geoLngRaw ? Number(geoLngRaw) : null,
-    assignedUserId: String(formData.get('assigned_user_id') ?? '').trim() || null,
+    assignedUserIds: formData.getAll('assigned_user_ids').map(String).filter(Boolean),
   })
 
   if ('error' in result) {

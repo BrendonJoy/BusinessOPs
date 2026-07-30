@@ -86,21 +86,29 @@ export default async function TimesheetPage({
       }
     : null
 
+  // Staff without view-all only get jobs they're assigned to (inner join on
+  // the job_assignments membership table).
+  const restrictToAssigned = !isCompany && !profile.can_view_all_jobs
   let jobsQuery = supabase
     .from('jobs')
-    .select('id, job_number, customer:customers(name)')
+    .select(
+      restrictToAssigned
+        ? 'id, job_number, customer:customers(name), job_assignments!inner(profile_id)'
+        : ('id, job_number, customer:customers(name)' as string)
+    )
     .in('status', JOB_STATUS_GROUPS.active)
     .order('job_number')
 
-  if (!isCompany && !profile.can_view_all_jobs) {
-    jobsQuery = jobsQuery.eq('assigned_user_id', profile.id)
+  if (restrictToAssigned) {
+    jobsQuery = jobsQuery.eq('job_assignments.profile_id', profile.id)
   }
 
   const { data: jobsData } = await jobsQuery
-  const jobs = (jobsData ?? []).map((j) => ({
+  type ClockJobRow = { id: string; job_number: string | null; customer: { name: string | null } | null }
+  const jobs = ((jobsData ?? []) as unknown as ClockJobRow[]).map((j) => ({
     id: j.id,
     job_number: j.job_number,
-    customerName: (j.customer as unknown as { name: string | null } | null)?.name ?? null,
+    customerName: j.customer?.name ?? null,
   }))
 
   const now = new Date()
