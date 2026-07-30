@@ -8,10 +8,12 @@ import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { JOB_STATUS_GROUPS } from '@trade-assist/db'
 import type { Customer, CostEntry, Invoice, Quote, Job } from '@trade-assist/db'
+import type { JobWithCustomer } from '@/lib/jobs'
 import StatDrilldown, { type DrilldownItem } from './StatDrilldown'
+import TodayJobsCard from './TodayJobsCard'
 
 type DashboardJob = Job & {
-  customer: Pick<Customer, 'name'> | null
+  customer: Pick<Customer, 'id' | 'name'> | null
   cost_entries: Pick<CostEntry, 'total_cost'>[]
   quotes: Pick<Quote, 'id' | 'status' | 'total' | 'tax_amount' | 'superseded_at'>[]
   invoices: Pick<Invoice, 'id' | 'status' | 'total' | 'tax_amount' | 'superseded_at' | 'created_at'>[]
@@ -62,7 +64,7 @@ export default async function DashboardPage() {
     supabase
       .from('jobs')
       .select(
-        '*, customer:customers(name), cost_entries(total_cost), quotes(id, status, total, tax_amount, superseded_at), invoices(id, status, total, tax_amount, superseded_at, created_at)'
+        '*, customer:customers(id, name), cost_entries(total_cost), quotes(id, status, total, tax_amount, superseded_at), invoices(id, status, total, tax_amount, superseded_at, created_at)'
       ),
     supabase
       .from('job_audit_log')
@@ -75,7 +77,14 @@ export default async function DashboardPage() {
   const jobs = (jobsData ?? []) as unknown as DashboardJob[]
   const activeStatuses = JOB_STATUS_GROUPS.active
 
-  const jobsToday = jobs.filter((j) => j.start_date === today && activeStatuses.includes(j.status)).length
+  // Jobs touching today (single-day or spanning), for the day-view drill-in.
+  const jobsToday = jobs.filter(
+    (j) =>
+      activeStatuses.includes(j.status) &&
+      j.start_date &&
+      j.start_date <= today &&
+      (j.finish_date ?? j.start_date) >= today
+  ) as unknown as JobWithCustomer[]
 
   const quotesAwaitingItems: DrilldownItem[] = jobs.flatMap((j) =>
     j.quotes
@@ -103,15 +112,24 @@ export default async function DashboardPage() {
       }))
   )
 
-  const jobsOverBudget = jobs.filter((j) => {
-    if (!activeStatuses.includes(j.status)) return false
+  const overBudgetItems: DrilldownItem[] = jobs.flatMap((j) => {
+    if (!activeStatuses.includes(j.status)) return []
     const quotedTotal = j.quotes
       .filter((q) => !q.superseded_at)
       .reduce((sum, q) => sum + Number(q.total) + Number(q.tax_amount), 0)
-    if (quotedTotal <= 0) return false
+    if (quotedTotal <= 0) return []
     const costsTotal = j.cost_entries.reduce((sum, c) => sum + Number(c.total_cost), 0)
-    return costsTotal > quotedTotal
-  }).length
+    if (costsTotal <= quotedTotal) return []
+    return [
+      {
+        id: j.id,
+        jobId: j.id,
+        jobNumber: j.job_number,
+        customerName: j.customer?.name ?? null,
+        amount: costsTotal - quotedTotal,
+      },
+    ]
+  })
 
   const revenueThisWeek = jobs.reduce((sum, j) => {
     const jobRevenue = j.invoices
@@ -146,20 +164,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-2xl font-semibold">{jobsToday}</p>
-          <p className="text-xs text-muted">Jobs Today</p>
-        </div>
+        <TodayJobsCard today={today} jobs={jobsToday} />
         {modules.modules_quotes_enabled && (
           <StatDrilldown label="Quotes Awaiting Approval" items={quotesAwaitingItems} currency={currency} />
         )}
         {modules.modules_invoicing_enabled && (
           <StatDrilldown label="Invoices Ready to Send" items={invoicesReadyItems} currency={currency} />
         )}
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-2xl font-semibold">{jobsOverBudget}</p>
-          <p className="text-xs text-muted">Jobs Over Budget</p>
-        </div>
+        <StatDrilldown label="Jobs Over Budget" items={overBudgetItems} currency={currency} />
       </div>
 
       <div className="rounded-lg border border-surface-border p-4">

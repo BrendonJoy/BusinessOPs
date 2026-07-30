@@ -34,8 +34,12 @@ export async function updateCompany(formData: FormData) {
   const defaultTaxRate = Number(formData.get('default_tax_rate') ?? 0)
   const gstRegistered = formData.get('gst_registered') === 'on'
   const paymentDetails = String(formData.get('payment_details') ?? '').trim() || null
+  const jobPrefix = String(formData.get('job_prefix') ?? '').trim()
 
   if (!name) errorRedirect('Company name is required.')
+  if (!jobPrefix || jobPrefix.length > 10) {
+    errorRedirect('Job number prefix must be 1–10 characters.')
+  }
 
   const { error } = await supabase
     .from('companies')
@@ -48,6 +52,7 @@ export async function updateCompany(formData: FormData) {
       default_tax_rate: defaultTaxRate,
       gst_registered: gstRegistered,
       payment_details: paymentDetails,
+      job_prefix: jobPrefix,
     })
     .eq('id', companyId)
 

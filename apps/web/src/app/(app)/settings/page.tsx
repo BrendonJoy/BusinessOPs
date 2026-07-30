@@ -250,6 +250,24 @@ export default async function SettingsPage({
             </div>
           </div>
           <div className="flex flex-col gap-1">
+            <label htmlFor="job_prefix" className="text-sm font-medium">
+              Job number prefix
+            </label>
+            <input
+              id="job_prefix"
+              name="job_prefix"
+              type="text"
+              required
+              maxLength={10}
+              defaultValue={company?.job_prefix ?? 'JOB-'}
+              className="w-40 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+            <p className="text-xs text-muted">
+              Applies to new jobs (e.g. {(company?.job_prefix ?? 'JOB-')}0042). The sequential number
+              itself can&apos;t be edited, and existing jobs keep their current numbers.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
             <label htmlFor="payment_details" className="text-sm font-medium">
               Payment details
             </label>

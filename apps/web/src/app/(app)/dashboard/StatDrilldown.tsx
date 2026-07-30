@@ -10,7 +10,9 @@ export type DrilldownItem = {
   jobNumber: string | null
   customerName: string | null
   amount: number
-  linkParam: 'openQuote' | 'openInvoice'
+  // Opens the job page with the quote/invoice panel pre-opened; omit to
+  // link straight to the job itself.
+  linkParam?: 'openQuote' | 'openInvoice'
 }
 
 export default function StatDrilldown({
@@ -54,7 +56,11 @@ export default function StatDrilldown({
                 {items.map((item) => (
                   <li key={item.id} className="rounded-md border border-surface-border p-3">
                     <Link
-                      href={`/jobs/${item.jobId}?${item.linkParam}=${item.id}`}
+                      href={
+                        item.linkParam
+                          ? `/jobs/${item.jobId}?${item.linkParam}=${item.id}`
+                          : `/jobs/${item.jobId}`
+                      }
                       className="flex items-center justify-between gap-3 hover:text-accent"
                     >
                       <span>

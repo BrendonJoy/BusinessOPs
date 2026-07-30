@@ -27,6 +27,7 @@ export interface Company {
   workday_start: string
   workday_end: string
   workday_days: number[]
+  job_prefix: string
   pay_cycle_length: PayCycleLength
   pay_cycle_anchor: string | null
   created_at: string

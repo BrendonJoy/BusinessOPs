@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { JOB_STATUS_GROUPS, JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
+import JobsToolbar from './JobsToolbar'
 
 const VIEWS = ['active', 'completed', 'cancelled'] as const
 type View = (typeof VIEWS)[number]
@@ -12,13 +13,44 @@ const VIEW_LABELS: Record<View, string> = {
   cancelled: 'Cancelled',
 }
 
+const SORT_COLUMNS = ['job_number', 'customer', 'status', 'start_date', 'finish_date'] as const
+type SortColumn = (typeof SORT_COLUMNS)[number]
+
+const COLUMN_LABELS: Record<SortColumn, string> = {
+  job_number: 'Job #',
+  customer: 'Customer',
+  status: 'Status',
+  start_date: 'Start',
+  finish_date: 'Finish',
+}
+
+function sortValue(job: JobWithCustomer, column: SortColumn): string | null {
+  switch (column) {
+    case 'job_number':
+      return job.job_number
+    case 'customer':
+      return job.customer?.name ?? null
+    case 'status':
+      return JOB_STATUS_LABELS[job.status]
+    case 'start_date':
+      return job.start_date
+    case 'finish_date':
+      return job.finish_date
+  }
+}
+
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; view?: string }>
+  searchParams: Promise<{ status?: string; q?: string; view?: string; sort?: string; dir?: string }>
 }) {
-  const { status, q, view: viewParam } = await searchParams
+  const { status, q, view: viewParam, sort: sortParam, dir: dirParam } = await searchParams
   const view: View = VIEWS.includes(viewParam as View) ? (viewParam as View) : 'active'
+  const sort: SortColumn = SORT_COLUMNS.includes(sortParam as SortColumn)
+    ? (sortParam as SortColumn)
+    : 'start_date'
+  const dir: 'asc' | 'desc' = dirParam === 'desc' ? 'desc' : 'asc'
+
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -41,6 +73,27 @@ export default async function JobsPage({
     }
     return true
   })
+
+  // Jobs without a value in the sorted column always sink to the bottom.
+  jobs.sort((a, b) => {
+    const aVal = sortValue(a, sort)
+    const bVal = sortValue(b, sort)
+    if (aVal === null && bVal === null) return 0
+    if (aVal === null) return 1
+    if (bVal === null) return -1
+    const compare = aVal.localeCompare(bVal)
+    return dir === 'asc' ? compare : -compare
+  })
+
+  function headerHref(column: SortColumn): string {
+    const query = new URLSearchParams()
+    query.set('view', view)
+    if (q) query.set('q', q)
+    if (status) query.set('status', status)
+    query.set('sort', column)
+    query.set('dir', column === sort && dir === 'asc' ? 'desc' : 'asc')
+    return `/jobs?${query.toString()}`
+  }
 
   return (
     <div>
@@ -68,36 +121,18 @@ export default async function JobsPage({
         ))}
       </div>
 
-      <form className="mb-6 flex flex-wrap gap-3" method="get">
-        <input type="hidden" name="view" value={view} />
-        <input
-          type="text"
-          name="q"
-          defaultValue={q ?? ''}
-          placeholder="Search job number, customer, address..."
-          className="min-w-[240px] flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        />
-        {view === 'active' && (
-          <select
-            name="status"
-            defaultValue={status ?? ''}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          >
-            <option value="">All active statuses</option>
-            {groupStatuses.map((s) => (
-              <option key={s} value={s}>
-                {JOB_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        )}
-        <button
-          type="submit"
-          className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-        >
-          Filter
-        </button>
-      </form>
+      <JobsToolbar
+        view={view}
+        q={q ?? ''}
+        status={status ?? ''}
+        sort={sortParam ?? ''}
+        dir={dirParam ?? ''}
+        statusOptions={
+          view === 'active'
+            ? groupStatuses.map((s) => ({ value: s, label: JOB_STATUS_LABELS[s] }))
+            : []
+        }
+      />
 
       {error && <p className="text-sm text-accent">Failed to load jobs: {error.message}</p>}
 
@@ -112,11 +147,14 @@ export default async function JobsPage({
           <table className="w-full text-left text-sm">
             <thead className="bg-surface text-muted">
               <tr>
-                <th className="px-4 py-2 font-medium">Job #</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Start</th>
-                <th className="px-4 py-2 font-medium">Finish</th>
+                {SORT_COLUMNS.map((column) => (
+                  <th key={column} className="px-4 py-2 font-medium">
+                    <Link href={headerHref(column)} className="hover:text-foreground">
+                      {COLUMN_LABELS[column]}
+                      {column === sort && <span className="ml-1">{dir === 'asc' ? '↑' : '↓'}</span>}
+                    </Link>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
