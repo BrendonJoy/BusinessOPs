@@ -15,6 +15,11 @@ function minutesAgoHHMM(minutes: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function minutesAheadHHMM(minutes: number): string {
+  const d = new Date(Date.now() + minutes * 60 * 1000)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export default function ClockWidget({
   openEntry,
   jobs,
@@ -34,6 +39,7 @@ export default function ClockWidget({
 }) {
   const [target, setTarget] = useState(jobs.length > 0 ? `job:${jobs[0].id}` : `misc:${TIMESHEET_MISC_CATEGORIES[0]}`)
   const [startTime, setStartTime] = useState(nowHHMM())
+  const [finishTime, setFinishTime] = useState(nowHHMM())
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -60,9 +66,24 @@ export default function ClockWidget({
           Clocked in to <span className="font-medium">{openEntry.label}</span> since{' '}
           <span className="font-medium">{openEntry.clockInTime}</span>
         </p>
-        <form action={clockOutAction} className="mt-3">
+        <form action={clockOutAction} className="mt-3 flex flex-wrap items-end gap-3">
           <input type="hidden" name="lat" value={lat ?? ''} />
           <input type="hidden" name="lng" value={lng ?? ''} />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="finish_time" className="text-xs font-medium">
+              Finish time
+            </label>
+            <input
+              id="finish_time"
+              name="finish_time"
+              type="time"
+              value={finishTime}
+              min={nowHHMM()}
+              max={minutesAheadHHMM(15)}
+              onChange={(e) => setFinishTime(e.target.value)}
+              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
           <button
             type="submit"
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"

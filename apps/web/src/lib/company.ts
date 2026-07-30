@@ -1,20 +1,29 @@
 import type { createClient } from '@/lib/supabase/server'
+import type { PayCycleLength } from '@trade-assist/db'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 export async function getCompanyCurrency(
   supabase: SupabaseClient
 ): Promise<{ currency: string; tax_label: string; default_tax_rate: number }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const defaults = { currency: 'USD', tax_label: 'Tax', default_tax_rate: 0 }
+  if (!user) return defaults
+
   const { data } = await supabase
     .from('profiles')
     .select('company:companies(currency, tax_label, default_tax_rate)')
-    .single()
+    .eq('id', user.id)
+    .maybeSingle()
 
   const company = data?.company as unknown as
     | { currency: string; tax_label: string; default_tax_rate: number }
     | null
 
-  return company ?? { currency: 'USD', tax_label: 'Tax', default_tax_rate: 0 }
+  return company ?? defaults
 }
 
 export async function getCompanyModules(supabase: SupabaseClient): Promise<{
@@ -57,27 +66,44 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
   return company ?? defaults
 }
 
-export async function getGeofenceSettings(
-  supabase: SupabaseClient
-): Promise<{ geofence_enabled: boolean; geofence_radius_meters: number }> {
+export type TimesheetSettings = {
+  geofence_enabled: boolean
+  geofence_radius_meters: number
+  workday_enforced: boolean
+  workday_start: string
+  workday_end: string
+  workday_days: number[]
+  pay_cycle_length: PayCycleLength
+  pay_cycle_anchor: string | null
+}
+
+export async function getTimesheetSettings(supabase: SupabaseClient): Promise<TimesheetSettings> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const defaults = { geofence_enabled: false, geofence_radius_meters: 200 }
+  const defaults: TimesheetSettings = {
+    geofence_enabled: false,
+    geofence_radius_meters: 200,
+    workday_enforced: false,
+    workday_start: '07:00',
+    workday_end: '17:00',
+    workday_days: [1, 2, 3, 4, 5],
+    pay_cycle_length: 'weekly',
+    pay_cycle_anchor: null,
+  }
 
   if (!user) return defaults
 
   const { data } = await supabase
     .from('profiles')
-    .select('company:companies(geofence_enabled, geofence_radius_meters)')
+    .select(
+      'company:companies(geofence_enabled, geofence_radius_meters, workday_enforced, workday_start, workday_end, workday_days, pay_cycle_length, pay_cycle_anchor)'
+    )
     .eq('id', user.id)
     .maybeSingle()
 
-  const company = data?.company as unknown as {
-    geofence_enabled: boolean
-    geofence_radius_meters: number
-  } | null
+  const company = data?.company as unknown as TimesheetSettings | null
 
   return company ?? defaults
 }
@@ -85,10 +111,16 @@ export async function getGeofenceSettings(
 export async function getCompanyInfo(
   supabase: SupabaseClient
 ): Promise<{ name: string; currency: string; gst_registered: boolean } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
   const { data } = await supabase
     .from('profiles')
     .select('company:companies(name, currency, gst_registered)')
-    .single()
+    .eq('id', user.id)
+    .maybeSingle()
 
   return (
     (data?.company as unknown as { name: string; currency: string; gst_registered: boolean } | null) ?? null

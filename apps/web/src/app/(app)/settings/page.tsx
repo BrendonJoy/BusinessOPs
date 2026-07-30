@@ -4,13 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatMoney } from '@/lib/money'
-import { CURRENCIES } from '@trade-assist/db'
+import { CURRENCIES, PAY_CYCLE_LENGTHS, PAY_CYCLE_LENGTH_LABELS, WORKDAY_DAY_LABELS } from '@trade-assist/db'
 import type { Company, CompanyInvite, Profile, StaffPermissions } from '@trade-assist/db'
 import {
   regenerateCalendarToken,
   updateCompany,
   updateCompanyModules,
-  updateGeofenceSettings,
+  updateTimesheetSettings,
   updateProfile,
   uploadCompanyLogo,
 } from './actions'
@@ -362,33 +362,131 @@ export default async function SettingsPage({
       {isCompany && (
       <section className="rounded-lg border border-surface-border p-4">
         <h2 className="mb-4 text-sm font-medium">Timesheets</h2>
-        <p className="mb-4 text-sm text-muted">
-          Optionally require staff to be physically near a job&apos;s address to clock in or out.
-        </p>
-        <form action={updateGeofenceSettings} className="flex flex-col gap-3">
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              name="geofence_enabled"
-              defaultChecked={company?.geofence_enabled ?? false}
-              className="h-4 w-4 rounded border-surface-border"
-            />
-            Require staff to be within range of the job site to clock in/out
-          </label>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="geofence_radius_meters" className="text-xs font-medium">
-              Radius (meters)
+        <form action={updateTimesheetSettings} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted">
+              Optionally require staff to be physically near a job&apos;s address to clock in or out.
+            </p>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                name="geofence_enabled"
+                defaultChecked={company?.geofence_enabled ?? false}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Require staff to be within range of the job site to clock in/out
             </label>
-            <input
-              id="geofence_radius_meters"
-              name="geofence_radius_meters"
-              type="number"
-              min="1"
-              step="1"
-              defaultValue={company?.geofence_radius_meters ?? 200}
-              className="w-32 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="geofence_radius_meters" className="text-xs font-medium">
+                Radius (meters)
+              </label>
+              <input
+                id="geofence_radius_meters"
+                name="geofence_radius_meters"
+                type="number"
+                min="1"
+                step="1"
+                defaultValue={company?.geofence_radius_meters ?? 200}
+                className="w-32 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+            </div>
           </div>
+
+          <div className="flex flex-col gap-3 border-t border-surface-border pt-4">
+            <p className="text-sm text-muted">
+              Optionally limit staff clock in/out to set work days and hours.
+            </p>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                name="workday_enforced"
+                defaultChecked={company?.workday_enforced ?? false}
+                className="h-4 w-4 rounded border-surface-border"
+              />
+              Only allow clocking in/out within work-day hours
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="workday_start" className="text-xs font-medium">
+                  Work day starts
+                </label>
+                <input
+                  id="workday_start"
+                  name="workday_start"
+                  type="time"
+                  defaultValue={(company?.workday_start ?? '07:00').slice(0, 5)}
+                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="workday_end" className="text-xs font-medium">
+                  Work day ends
+                </label>
+                <input
+                  id="workday_end"
+                  name="workday_end"
+                  type="time"
+                  defaultValue={(company?.workday_end ?? '17:00').slice(0, 5)}
+                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium">Work days</span>
+              <div className="flex flex-wrap gap-3">
+                {([1, 2, 3, 4, 5, 6, 7] as const).map((day) => (
+                  <label key={day} className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      name="workday_days"
+                      value={day}
+                      defaultChecked={(company?.workday_days ?? [1, 2, 3, 4, 5]).includes(day)}
+                      className="h-4 w-4 rounded border-surface-border"
+                    />
+                    {WORKDAY_DAY_LABELS[day]}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-surface-border pt-4">
+            <p className="text-sm text-muted">
+              Pay cycle for payroll reports. The cycle start date anchors when each cycle begins.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="pay_cycle_length" className="text-xs font-medium">
+                  Pay cycle
+                </label>
+                <select
+                  id="pay_cycle_length"
+                  name="pay_cycle_length"
+                  defaultValue={company?.pay_cycle_length ?? 'weekly'}
+                  className="w-40 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                >
+                  {PAY_CYCLE_LENGTHS.map((length) => (
+                    <option key={length} value={length}>
+                      {PAY_CYCLE_LENGTH_LABELS[length]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="pay_cycle_anchor" className="text-xs font-medium">
+                  Cycle start date
+                </label>
+                <input
+                  id="pay_cycle_anchor"
+                  name="pay_cycle_anchor"
+                  type="date"
+                  defaultValue={company?.pay_cycle_anchor ?? ''}
+                  className="w-44 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
           <button
             type="submit"
             className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"

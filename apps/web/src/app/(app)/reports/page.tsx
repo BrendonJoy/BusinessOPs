@@ -59,9 +59,14 @@ export default async function ReportsPage({
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Reports</h1>
         {isCompanyAccount(profile?.role) && (
-          <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
-            View staff timesheets →
-          </Link>
+          <div className="flex gap-4">
+            <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
+              View staff timesheets →
+            </Link>
+            <Link href="/timesheet/payroll" className="text-sm text-accent hover:opacity-80">
+              Payroll →
+            </Link>
+          </div>
         )}
       </div>
 

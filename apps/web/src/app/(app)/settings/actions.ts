@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { PAY_CYCLE_LENGTHS, type PayCycleLength } from '@trade-assist/db'
 
 function errorRedirect(message: string): never {
   redirect(`/settings?error=${encodeURIComponent(message)}`)
@@ -76,7 +77,7 @@ export async function updateCompanyModules(formData: FormData) {
   revalidatePath('/settings')
 }
 
-export async function updateGeofenceSettings(formData: FormData) {
+export async function updateTimesheetSettings(formData: FormData) {
   const supabase = await createClient()
   const companyId = await getCompanyId(supabase)
   if (!companyId) errorRedirect('Could not determine your company.')
@@ -86,9 +87,40 @@ export async function updateGeofenceSettings(formData: FormData) {
 
   if (!Number.isFinite(radius) || radius <= 0) errorRedirect('Enter a valid geofence radius.')
 
+  const workdayEnforced = formData.get('workday_enforced') === 'on'
+  const workdayStart = String(formData.get('workday_start') ?? '')
+  const workdayEnd = String(formData.get('workday_end') ?? '')
+  const workdayDays = formData
+    .getAll('workday_days')
+    .map(Number)
+    .filter((d) => Number.isInteger(d) && d >= 1 && d <= 7)
+
+  if (!/^\d{2}:\d{2}$/.test(workdayStart) || !/^\d{2}:\d{2}$/.test(workdayEnd)) {
+    errorRedirect('Enter valid work-day hours.')
+  }
+  if (workdayEnd <= workdayStart) errorRedirect('Work-day end must be after the start.')
+  if (workdayEnforced && workdayDays.length === 0) errorRedirect('Pick at least one work day.')
+
+  const payCycleLength = String(formData.get('pay_cycle_length') ?? 'weekly')
+  if (!PAY_CYCLE_LENGTHS.includes(payCycleLength as PayCycleLength)) {
+    errorRedirect('Invalid pay cycle length.')
+  }
+
+  const anchorRaw = String(formData.get('pay_cycle_anchor') ?? '').trim()
+  if (anchorRaw && !/^\d{4}-\d{2}-\d{2}$/.test(anchorRaw)) errorRedirect('Enter a valid cycle start date.')
+
   const { error } = await supabase
     .from('companies')
-    .update({ geofence_enabled: geofenceEnabled, geofence_radius_meters: radius })
+    .update({
+      geofence_enabled: geofenceEnabled,
+      geofence_radius_meters: radius,
+      workday_enforced: workdayEnforced,
+      workday_start: workdayStart,
+      workday_end: workdayEnd,
+      workday_days: workdayDays,
+      pay_cycle_length: payCycleLength,
+      pay_cycle_anchor: anchorRaw || null,
+    })
     .eq('id', companyId)
 
   if (error) errorRedirect(error.message)

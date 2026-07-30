@@ -23,7 +23,34 @@ export interface Company {
   modules_timesheets_enabled: boolean
   geofence_enabled: boolean
   geofence_radius_meters: number
+  workday_enforced: boolean
+  workday_start: string
+  workday_end: string
+  workday_days: number[]
+  pay_cycle_length: PayCycleLength
+  pay_cycle_anchor: string | null
   created_at: string
+}
+
+export type PayCycleLength = 'weekly' | 'fortnightly' | 'monthly'
+
+export const PAY_CYCLE_LENGTHS: PayCycleLength[] = ['weekly', 'fortnightly', 'monthly']
+
+export const PAY_CYCLE_LENGTH_LABELS: Record<PayCycleLength, string> = {
+  weekly: 'Weekly',
+  fortnightly: 'Fortnightly',
+  monthly: 'Monthly',
+}
+
+// ISO weekday numbering: 1 = Monday .. 7 = Sunday (matches companies.workday_days).
+export const WORKDAY_DAY_LABELS: Record<number, string> = {
+  1: 'Mon',
+  2: 'Tue',
+  3: 'Wed',
+  4: 'Thu',
+  5: 'Fri',
+  6: 'Sat',
+  7: 'Sun',
 }
 
 export type AccessLevel = 'hidden' | 'view' | 'full'
@@ -90,7 +117,30 @@ export interface TimesheetEntry {
   clock_out_lat: number | null
   clock_out_lng: number | null
   cost_entry_id: string | null
+  day_id: string | null
   created_at: string
+}
+
+export type TimesheetDayStatus = 'submitted' | 'approved'
+
+export interface TimesheetDay {
+  id: string
+  company_id: string
+  profile_id: string
+  work_date: string
+  status: TimesheetDayStatus
+  submitted_at: string
+  approved_at: string | null
+  approved_by: string | null
+}
+
+export interface PayrollPeriod {
+  id: string
+  company_id: string
+  period_start: string
+  period_end: string
+  approved_at: string
+  approved_by: string | null
 }
 
 export interface Customer {
@@ -245,6 +295,12 @@ export interface FeedbackDigest {
   message_count: number
   summary: string
   urgent_items: FeedbackUrgentItem[]
+  suggested_actions: FeedbackSuggestedAction[]
+}
+
+export interface FeedbackSuggestedAction {
+  title: string
+  suggestion: string
 }
 
 export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
