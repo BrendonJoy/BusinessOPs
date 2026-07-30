@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import { formatMoney } from '@/lib/money'
 import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS, type LineItemType } from '@trade-assist/db'
-import LineItemAssistant from './LineItemAssistant'
-import type { ParsedLineItem } from './ai-line-item-actions'
 
 export type EditableLineItem = {
   key: string
@@ -40,19 +38,6 @@ export default function LineItemsEditor({
 
   function addRow() {
     setRows((prev) => [...prev, emptyRow()])
-  }
-
-  function handleParsed(items: ParsedLineItem[]) {
-    setRows((prev) => [
-      ...prev.filter((r) => r.description.trim()),
-      ...items.map((item) => ({
-        key: crypto.randomUUID(),
-        item_type: item.item_type,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-      })),
-    ])
   }
 
   async function handleSave() {
@@ -177,8 +162,6 @@ export default function LineItemsEditor({
           {isSaving ? 'Saving…' : 'Save items'}
         </button>
       </div>
-
-      <LineItemAssistant onItemsParsed={handleParsed} />
     </div>
   )
 }

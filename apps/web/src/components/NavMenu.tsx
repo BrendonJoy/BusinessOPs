@@ -13,7 +13,6 @@ const LINKS = [
   { href: '/reports', label: 'Reports', companyOnly: false },
   { href: '/expenses', label: 'Expenses', companyOnly: true },
   { href: '/settings', label: 'Settings', companyOnly: false },
-  { href: '/feedback', label: 'Feedback', companyOnly: false },
 ]
 
 export default function NavMenu({

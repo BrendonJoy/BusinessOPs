@@ -4,6 +4,7 @@ import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getCurrentProfile } from '@/lib/roles'
 import { getCompanyModules } from '@/lib/company'
 import NavMenu from '@/components/NavMenu'
+import ChatWidget from '@/components/ChatWidget'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      <ChatWidget />
     </div>
   );
 }

@@ -3,109 +3,35 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createJobRecord } from '@/lib/job-create'
 
 export async function createJob(formData: FormData) {
-  const customerId = String(formData.get('customer_id') ?? '').trim() || null
-  const customerName = String(formData.get('customer_name') ?? '').trim()
-  const customerEmail = String(formData.get('customer_email') ?? '').trim() || null
-  const customerPhone = String(formData.get('customer_phone') ?? '').trim() || null
-  const customerAddress = String(formData.get('customer_address') ?? '').trim() || null
-  const addressLine = String(formData.get('address_line') ?? '').trim() || null
-  const notes = String(formData.get('notes') ?? '').trim() || null
-  const startDate = String(formData.get('start_date') ?? '') || null
-  const startTime = String(formData.get('start_time') ?? '') || null
-  const finishDate = String(formData.get('finish_date') ?? '') || null
-  const finishTime = String(formData.get('finish_time') ?? '') || null
   const geoLatRaw = String(formData.get('geo_lat') ?? '')
   const geoLngRaw = String(formData.get('geo_lng') ?? '')
-  const geoLat = geoLatRaw ? Number(geoLatRaw) : null
-  const geoLng = geoLngRaw ? Number(geoLngRaw) : null
-  const assignedUserId = String(formData.get('assigned_user_id') ?? '').trim() || null
-
-  if (!customerName) {
-    redirect(`/jobs/new?error=${encodeURIComponent('Customer name is required.')}`)
-  }
 
   const supabase = await createClient()
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('company_id')
-    .single()
+  const result = await createJobRecord(supabase, {
+    customerId: String(formData.get('customer_id') ?? '').trim() || null,
+    customerName: String(formData.get('customer_name') ?? '').trim(),
+    customerEmail: String(formData.get('customer_email') ?? '').trim() || null,
+    customerPhone: String(formData.get('customer_phone') ?? '').trim() || null,
+    customerAddress: String(formData.get('customer_address') ?? '').trim() || null,
+    addressLine: String(formData.get('address_line') ?? '').trim() || null,
+    notes: String(formData.get('notes') ?? '').trim() || null,
+    startDate: String(formData.get('start_date') ?? '') || null,
+    startTime: String(formData.get('start_time') ?? '') || null,
+    finishDate: String(formData.get('finish_date') ?? '') || null,
+    finishTime: String(formData.get('finish_time') ?? '') || null,
+    geoLat: geoLatRaw ? Number(geoLatRaw) : null,
+    geoLng: geoLngRaw ? Number(geoLngRaw) : null,
+    assignedUserId: String(formData.get('assigned_user_id') ?? '').trim() || null,
+  })
 
-  if (profileError || !profile) {
-    redirect(`/jobs/new?error=${encodeURIComponent('Could not determine your company.')}`)
-  }
-
-  let resolvedCustomerId = customerId ?? undefined
-
-  if (resolvedCustomerId) {
-    // Selected from the existing-customer list -- sync any edits made on this
-    // form back to their saved record instead of silently discarding them.
-    const { error: customerUpdateError } = await supabase
-      .from('customers')
-      .update({
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
-        address: customerAddress,
-      })
-      .eq('id', resolvedCustomerId)
-
-    if (customerUpdateError) {
-      redirect(`/jobs/new?error=${encodeURIComponent(customerUpdateError.message)}`)
-    }
-  } else {
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .ilike('name', customerName)
-      .maybeSingle()
-
-    resolvedCustomerId = existingCustomer?.id as string | undefined
-
-    if (!resolvedCustomerId) {
-      const { data: createdCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({
-          company_id: profile.company_id,
-          name: customerName,
-          email: customerEmail,
-          phone: customerPhone,
-          address: customerAddress,
-        })
-        .select('id')
-        .single()
-
-      if (customerError || !createdCustomer) {
-        redirect(`/jobs/new?error=${encodeURIComponent(customerError?.message ?? 'Could not create customer.')}`)
-      }
-      resolvedCustomerId = createdCustomer!.id
-    }
-  }
-
-  const { data: job, error: jobError } = await supabase
-    .from('jobs')
-    .insert({
-      company_id: profile.company_id,
-      customer_id: resolvedCustomerId,
-      address_line: addressLine,
-      notes,
-      start_date: startDate,
-      start_time: startTime,
-      finish_date: finishDate,
-      finish_time: finishTime,
-      geo_lat: geoLat,
-      geo_lng: geoLng,
-      assigned_user_id: assignedUserId,
-    })
-    .select('id')
-    .single()
-
-  if (jobError || !job) {
-    redirect(`/jobs/new?error=${encodeURIComponent(jobError?.message ?? 'Could not create job.')}`)
+  if ('error' in result) {
+    redirect(`/jobs/new?error=${encodeURIComponent(result.error)}`)
   }
 
   revalidatePath('/jobs')
-  redirect(`/jobs/${job!.id}`)
+  redirect(`/jobs/${result.jobId}`)
 }

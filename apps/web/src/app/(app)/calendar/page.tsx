@@ -4,7 +4,6 @@ import { getCalendarGridDays, getMonthInfo } from '@/lib/calendar'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { JobWithCustomer } from '@/lib/jobs'
 import CalendarGrid from './CalendarGrid'
-import RoutePlanner from './RoutePlanner'
 
 export default async function CalendarPage({
   searchParams,
@@ -70,8 +69,6 @@ export default async function CalendarPage({
           </Link>
         </div>
       </div>
-
-      {canSchedule && <RoutePlanner />}
 
       <CalendarGrid
         gridDays={gridDays}

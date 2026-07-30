@@ -1,64 +1,10 @@
 'use server'
 
-import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
 import { getDistanceMatrix } from '@/lib/google-maps'
 import { findBestRoute } from '@/lib/route-optimizer'
-
-export async function parseRouteDate(text: string): Promise<{ date?: string; error?: string }> {
-  if (!text.trim()) {
-    return { error: 'Describe which day to plan a route for.' }
-  }
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { error: 'AI parsing is not configured (missing ANTHROPIC_API_KEY).' }
-  }
-
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const today = new Date().toISOString().slice(0, 10)
-
-  try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      system: `Resolve which date the user is referring to. Today's date is ${today}. Resolve relative or partial dates ("tomorrow", "next Tuesday", "the 14th") to an actual date in YYYY-MM-DD format. If no date is mentioned at all, use today's date.`,
-      tools: [
-        {
-          name: 'resolve_date',
-          description: 'Return the resolved date the user wants to plan a route for.',
-          input_schema: {
-            type: 'object',
-            properties: {
-              date: { type: 'string', description: 'Resolved date as YYYY-MM-DD.' },
-            },
-            required: ['date'],
-          },
-        },
-      ],
-      tool_choice: { type: 'tool', name: 'resolve_date' },
-      messages: [{ role: 'user', content: text }],
-    })
-
-    const toolUse = response.content.find(
-      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-    )
-
-    if (!toolUse) {
-      return { error: "Couldn't work out a date. Try rephrasing." }
-    }
-
-    const raw = toolUse.input as { date?: string }
-    if (!raw.date) {
-      return { error: "Couldn't work out a date." }
-    }
-
-    return { date: raw.date }
-  } catch {
-    return { error: 'AI parsing failed. Try again.' }
-  }
-}
 
 export type RouteStop = {
   jobId: string

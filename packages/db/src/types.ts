@@ -303,6 +303,15 @@ export interface FeedbackSuggestedAction {
   suggestion: string
 }
 
+export interface ChatMessage {
+  id: string
+  company_id: string
+  profile_id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
 export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
   idea: 'Idea',
   support: 'Support',
