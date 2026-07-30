@@ -20,12 +20,14 @@ export async function sendQuoteEmail(params: {
   jobNumber: string
   total: string
   quoteUrl: string
+  replyTo?: string
 }): Promise<SendResult> {
   const resend = getResendClient()
   if (!resend) return { sent: false, reason: 'not_configured' }
 
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
+    replyTo: params.replyTo,
     to: params.to,
     subject: `Quote from ${params.companyName} — ${params.jobNumber}`,
     html: `
@@ -44,12 +46,14 @@ export async function sendTeamInviteEmail(params: {
   companyName: string
   role: string
   inviteUrl: string
+  replyTo?: string
 }): Promise<SendResult> {
   const resend = getResendClient()
   if (!resend) return { sent: false, reason: 'not_configured' }
 
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
+    replyTo: params.replyTo,
     to: params.to,
     subject: `You've been invited to join ${params.companyName} on BusinessOps`,
     html: `
@@ -124,12 +128,14 @@ export async function sendInvoiceEmail(params: {
   total: string
   pdfBuffer: Buffer
   pdfFilename: string
+  replyTo?: string
 }): Promise<SendResult> {
   const resend = getResendClient()
   if (!resend) return { sent: false, reason: 'not_configured' }
 
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
+    replyTo: params.replyTo,
     to: params.to,
     subject: `Invoice from ${params.companyName} — ${params.jobNumber}`,
     html: `

@@ -108,6 +108,25 @@ export async function getTimesheetSettings(supabase: SupabaseClient): Promise<Ti
   return company ?? defaults
 }
 
+// The company account's login email -- used as the reply-to on outbound
+// customer emails so replies reach the business owner, not our send domain.
+export async function getCompanyContactEmail(supabase: SupabaseClient): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // RLS already scopes profiles to the caller's company.
+  const { data } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('role', 'company')
+    .limit(1)
+    .maybeSingle()
+
+  return data?.email ?? null
+}
+
 export async function getCompanyInfo(
   supabase: SupabaseClient
 ): Promise<{ name: string; currency: string; gst_registered: boolean } | null> {

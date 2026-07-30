@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
 import { generateInvoicePdf } from '@/lib/invoice-pdf'
 import { sendInvoiceEmail } from '@/lib/email'
+import { getCompanyContactEmail } from '@/lib/company'
 import { formatMoney } from '@/lib/money'
 
 function errorRedirect(jobId: string, message: string): never {
@@ -35,6 +36,7 @@ export async function updateInvoiceStatus(invoiceId: string, jobId: string, form
         total: formatMoney(pdf.total, pdf.currency),
         pdfBuffer: pdf.buffer,
         pdfFilename: pdf.filename,
+        replyTo: (await getCompanyContactEmail(supabase)) ?? undefined,
       })
       if (result.sent) {
         await logJobAudit(supabase, jobId, `Invoice emailed to ${pdf.customerEmail}`)

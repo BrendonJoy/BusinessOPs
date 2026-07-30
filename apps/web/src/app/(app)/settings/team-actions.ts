@@ -61,6 +61,7 @@ export async function inviteTeamMember(formData: FormData) {
     companyName: company?.name ?? 'BusinessOps',
     role: 'staff',
     inviteUrl: `${baseUrl}/accept-invite/${invite!.token}`,
+    replyTo: profile.email ?? undefined,
   })
 
   if (!result.sent && result.reason === 'send_failed') {

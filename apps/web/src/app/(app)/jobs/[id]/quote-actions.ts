@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logJobAudit } from '@/lib/audit'
-import { getCompanyInfo } from '@/lib/company'
+import { getCompanyInfo, getCompanyContactEmail } from '@/lib/company'
 import { formatMoney } from '@/lib/money'
 import { sendQuoteEmail } from '@/lib/email'
 import { getBaseUrl } from '@/lib/url'
@@ -94,6 +94,7 @@ export async function markQuoteSent(quoteId: string, jobId: string) {
       jobNumber: job?.job_number ?? 'your job',
       total: formatMoney(grandTotal, company.currency),
       quoteUrl: `${baseUrl}/q/${quote.share_token}`,
+      replyTo: (await getCompanyContactEmail(supabase)) ?? undefined,
     })
     if (result.sent) {
       await logJobAudit(supabase, jobId, `Quote emailed to ${customer.email}`)
