@@ -38,3 +38,16 @@ export async function rescheduleJob(
   revalidatePath('/jobs')
   revalidatePath(`/jobs/${jobId}`)
 }
+
+// Day-view drag: changes the time of day only, dates stay put.
+export async function rescheduleJobTime(jobId: string, startTime: string, finishTime: string) {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(finishTime)) return
+
+  const supabase = await createClient()
+  await supabase.from('jobs').update({ start_time: startTime, finish_time: finishTime }).eq('id', jobId)
+
+  await logJobAudit(supabase, jobId, `Rescheduled to ${startTime}`)
+
+  revalidatePath('/calendar')
+  revalidatePath(`/jobs/${jobId}`)
+}

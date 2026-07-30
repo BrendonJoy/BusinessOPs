@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
 import { rescheduleJob } from './actions'
+import DayView from './DayView'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const BAR_HEIGHT_REM = 1.375
@@ -59,6 +60,23 @@ export default function CalendarGrid({
   canSchedule: boolean
 }) {
   const [hoveredDay, setHoveredDay] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
+  // Everything touching a given day: single-day chips plus any multi-day
+  // job whose date range covers it.
+  function jobsOnDay(day: string): JobWithCustomer[] {
+    const single = jobsByDate[day] ?? []
+    const spanning = multiDayJobs.filter(
+      (job) => job.start_date && job.start_date <= day && (job.finish_date ?? job.start_date) >= day
+    )
+    return [...single, ...spanning]
+  }
+
+  function handleDayClick(e: React.MouseEvent, day: string) {
+    // Ignore clicks that were really on a job chip/bar link.
+    if ((e.target as HTMLElement).closest('a')) return
+    setSelectedDay(day)
+  }
 
   function handleDragStart(e: React.DragEvent, job: JobWithCustomer) {
     e.dataTransfer.setData(
@@ -91,6 +109,15 @@ export default function CalendarGrid({
   const weeks = chunkWeeks(gridDays)
 
   return (
+    <>
+      {selectedDay && (
+        <DayView
+          day={selectedDay}
+          jobs={jobsOnDay(selectedDay)}
+          canSchedule={canSchedule}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
     <div className="overflow-hidden rounded-lg border border-surface-border bg-surface-border">
       <div className="grid grid-cols-7 gap-px text-sm">
         {WEEKDAY_LABELS.map((label) => (
@@ -134,7 +161,8 @@ export default function CalendarGrid({
                   onDragOver={(e) => handleDragOver(e, day)}
                   onDragLeave={() => setHoveredDay((prev) => (prev === day ? null : prev))}
                   onDrop={(e) => handleDrop(e, day)}
-                  className={`min-h-[6rem] bg-background p-1.5 ${inMonth ? '' : 'opacity-40'} ${
+                  onClick={(e) => handleDayClick(e, day)}
+                  className={`min-h-[6rem] cursor-pointer bg-background p-1.5 ${inMonth ? '' : 'opacity-40'} ${
                     isHovered ? 'bg-accent/10' : ''
                   }`}
                   style={{ paddingTop: `${0.375 + barsAreaHeight}rem` }}
@@ -188,5 +216,6 @@ export default function CalendarGrid({
         )
       })}
     </div>
+    </>
   )
 }
