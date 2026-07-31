@@ -26,5 +26,5 @@ export async function signup(formData: FormData) {
     redirect(`/login?message=${encodeURIComponent('Check your email to confirm your account, then log in.')}`)
   }
 
-  redirect('/jobs')
+  redirect('/dashboard')
 }

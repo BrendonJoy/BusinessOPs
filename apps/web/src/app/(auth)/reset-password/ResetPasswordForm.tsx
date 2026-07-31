@@ -69,7 +69,7 @@ export default function ResetPasswordForm() {
       return
     }
 
-    router.push('/jobs')
+    router.push('/dashboard')
     router.refresh()
   }
 
