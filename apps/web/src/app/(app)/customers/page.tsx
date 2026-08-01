@@ -1,6 +1,17 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Customer } from '@trade-assist/db'
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  Notice,
+  PageHeader,
+  type Column,
+} from '@/components/ui'
 import { createCustomer } from './actions'
 
 export default async function CustomersPage({
@@ -25,127 +36,84 @@ export default async function CustomersPage({
       })
     : customers
 
+  const columns: Column<Customer>[] = [
+    { key: 'name', header: 'Name', mobile: 'title', className: 'font-medium', cell: (c) => c.name },
+    { key: 'email', header: 'Email', cell: (c) => c.email ?? '—' },
+    { key: 'phone', header: 'Phone', cell: (c) => c.phone ?? '—' },
+    { key: 'address', header: 'Address', cell: (c) => c.address ?? '—' },
+    {
+      key: 'actions',
+      header: '',
+      // The whole card is already tappable on mobile, so this would be a
+      // redundant second link — and it sits under the card's overlay anyway.
+      mobile: 'hidden',
+      className: 'text-right',
+      cell: (c) => (
+        <Link href={`/customers/${c.id}`} className="text-accent hover:opacity-80">
+          View / Edit
+        </Link>
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold">Customers</h1>
-        <p className="text-sm text-muted">View and update your saved customer details.</p>
-      </div>
+      <PageHeader
+        title="Customers"
+        description="View and update your saved customer details."
+      />
 
-      {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Add customer</h2>
-        <form action={createCustomer} className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="name" className="text-xs font-medium">
-              Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="email" className="text-xs font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="phone" className="text-xs font-medium">
-              Phone
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="text"
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex min-w-[200px] flex-1 flex-col gap-1">
-            <label htmlFor="address" className="text-xs font-medium">
-              Address
-            </label>
-            <input
-              id="address"
-              name="address"
-              type="text"
-              className="w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-          >
+        <form action={createCustomer} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <Field label="Name" htmlFor="name" required className="sm:w-auto">
+            <Input id="name" name="name" type="text" required />
+          </Field>
+          <Field label="Email" htmlFor="email" className="sm:w-auto">
+            <Input id="email" name="email" type="email" />
+          </Field>
+          <Field label="Phone" htmlFor="phone" className="sm:w-auto">
+            <Input id="phone" name="phone" type="tel" />
+          </Field>
+          <Field label="Address" htmlFor="address" className="min-w-[200px] flex-1">
+            <Input id="address" name="address" type="text" />
+          </Field>
+          <Button type="submit" variant="primary">
             Add customer
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-medium">All customers ({filtered.length})</h2>
-          <form method="get" className="flex gap-2">
-            <input
-              type="text"
+          <form method="get" className="flex w-full gap-2 sm:w-auto">
+            <Input
+              type="search"
               name="q"
               defaultValue={q ?? ''}
               placeholder="Search customers…"
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              aria-label="Search customers"
+              className="min-w-0"
             />
-            <button
-              type="submit"
-              className="rounded-md border border-surface-border px-3 py-2 text-sm font-medium hover:border-accent"
-            >
+            <Button type="submit" className="shrink-0">
               Search
-            </button>
+            </Button>
           </form>
         </div>
 
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted">
-            {q ? 'No customers match your search.' : 'No customers yet.'}
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-surface-border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Name</th>
-                  <th className="px-4 py-2 font-medium">Email</th>
-                  <th className="px-4 py-2 font-medium">Phone</th>
-                  <th className="px-4 py-2 font-medium">Address</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => (
-                  <tr key={c.id} className="border-t border-surface-border hover:bg-surface">
-                    <td className="px-4 py-2 font-medium">{c.name}</td>
-                    <td className="px-4 py-2">{c.email ?? '—'}</td>
-                    <td className="px-4 py-2">{c.phone ?? '—'}</td>
-                    <td className="px-4 py-2">{c.address ?? '—'}</td>
-                    <td className="px-4 py-2 text-right">
-                      <Link href={`/customers/${c.id}`} className="text-accent hover:opacity-80">
-                        View / Edit
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        <DataTable
+          columns={columns}
+          rows={filtered}
+          getRowKey={(c) => c.id}
+          getRowHref={(c) => `/customers/${c.id}`}
+          empty={
+            <EmptyState title={q ? 'No customers match your search.' : 'No customers yet.'} />
+          }
+        />
+      </Card>
     </div>
   )
 }

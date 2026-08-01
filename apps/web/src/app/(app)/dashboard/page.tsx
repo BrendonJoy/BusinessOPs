@@ -9,6 +9,8 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { JOB_STATUS_GROUPS } from '@trade-assist/db'
 import type { Customer, CostEntry, Invoice, Quote, Job } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
+import { formatDate } from '@/lib/dates'
+import { Card, EmptyState } from '@/components/ui'
 import StatDrilldown, { type DrilldownItem } from './StatDrilldown'
 import TodayJobsCard from './TodayJobsCard'
 
@@ -34,7 +36,7 @@ function getGreeting(hour: number): string {
 }
 
 function formatJobWhen(startDate: string | null, startTime: string | null, today: string): string {
-  const datePart = startDate === today ? 'Today' : (startDate ?? '')
+  const datePart = startDate === today ? 'Today' : formatDate(startDate, '')
   const timePart = startTime ? startTime.slice(0, 5) : null
   return timePart ? `${datePart}, ${timePart}` : datePart
 }
@@ -174,21 +176,26 @@ export default async function DashboardPage() {
         <StatDrilldown label="Jobs Over Budget" items={overBudgetItems} currency={currency} />
       </div>
 
-      <div className="rounded-lg border border-surface-border p-4">
+      <Card>
         <p className="text-xs text-muted">Revenue this week</p>
         <p className="text-2xl font-semibold">{formatMoney(revenueThisWeek, currency)}</p>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section className="rounded-lg border border-surface-border p-4">
+        <Card>
           <h2 className="mb-3 text-sm font-medium">Upcoming jobs</h2>
           {upcomingJobs.length === 0 ? (
-            <p className="text-sm text-muted">No upcoming jobs scheduled.</p>
+            <EmptyState title="No upcoming jobs scheduled." />
           ) : (
-            <ul className="flex flex-col gap-2 text-sm">
+            <ul className="flex flex-col gap-1 text-sm">
               {upcomingJobs.map((job) => (
                 <li key={job.id}>
-                  <Link href={`/jobs/${job.id}`} className="hover:text-accent">
+                  {/* block, not flex — the label is a run of inline spans and
+                      flex would break each one onto its own line. */}
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="block rounded-md px-2 py-2.5 hover:bg-surface hover:text-accent sm:py-1"
+                  >
                     <span className="text-muted">{formatJobWhen(job.start_date, job.start_time, today)}</span>
                     {' — '}
                     <span className="font-medium">{job.job_number ?? 'Job'}</span>
@@ -199,12 +206,12 @@ export default async function DashboardPage() {
               ))}
             </ul>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded-lg border border-surface-border p-4">
+        <Card>
           <h2 className="mb-3 text-sm font-medium">Recent activity</h2>
           {recentActivity.length === 0 ? (
-            <p className="text-sm text-muted">No activity yet.</p>
+            <EmptyState title="No activity yet." />
           ) : (
             <ul className="flex flex-col gap-2 text-sm">
               {recentActivity.map((entry) => (
@@ -216,7 +223,7 @@ export default async function DashboardPage() {
               ))}
             </ul>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   )

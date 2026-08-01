@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Button, Field, Input, Notice } from '@/components/ui'
 import { requestPasswordReset } from './actions'
 
 export default async function ForgotPasswordPage({
@@ -15,33 +16,20 @@ export default async function ForgotPasswordPage({
         Enter your email and we&apos;ll send you a link to reset your password.
       </p>
 
-      {message && (
-        <p className="mb-4 rounded-md bg-surface px-3 py-2 text-sm text-foreground">{message}</p>
-      )}
+      {message && <Notice className="mb-4">{message}</Notice>}
       {error && (
-        <p className="mb-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>
+        <Notice tone="error" className="mb-4">
+          {error}
+        </Notice>
       )}
 
       <form action={requestPasswordReset} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          className="mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
+        <Field label="Email" htmlFor="email">
+          <Input id="email" name="email" type="email" required autoComplete="email" />
+        </Field>
+        <Button type="submit" variant="primary" className="mt-2">
           Send reset link
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-sm text-muted">

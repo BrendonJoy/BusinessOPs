@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
 import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import type { Quote, QuoteLineItem } from '@trade-assist/db'
+import { Button, DataTable, Notice, type Column } from '@/components/ui'
 import { respondToQuote } from './actions'
 
 type PublicQuote = Omit<Quote, 'share_token'>
@@ -65,46 +66,54 @@ export default async function PublicQuotePage({
         )}
 
         {actionError && (
-          <p className="mt-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
+          <Notice tone="error" className="mt-4">
+            {actionError}
+          </Notice>
         )}
 
         {LINE_ITEM_TYPES.map((type) => {
           const items = line_items.filter((item) => item.item_type === type)
           if (items.length === 0) return null
 
+          const isCallout = type === 'callout'
+          const columns: Column<(typeof items)[number]>[] = [
+            {
+              key: 'description',
+              header: 'Description',
+              mobile: 'title',
+              className: 'w-1/2',
+              cell: (item) => item.description,
+            },
+            {
+              key: 'total',
+              header: 'Total',
+              mobile: 'meta',
+              className: 'w-1/6',
+              cell: (item) => formatMoney(Number(item.line_total), company.currency),
+            },
+            {
+              key: 'quantity',
+              header: isCallout ? '' : type === 'labour' ? 'Hours' : 'Qty',
+              mobileLabel: type === 'labour' ? 'Hours' : 'Qty',
+              className: 'w-1/6',
+              mobile: isCallout ? 'hidden' : 'row',
+              cell: (item) => (isCallout ? '' : item.quantity),
+            },
+            {
+              key: 'unit_price',
+              header: isCallout ? '' : type === 'labour' ? 'Rate' : 'Unit price',
+              mobileLabel: type === 'labour' ? 'Rate' : 'Unit price',
+              className: 'w-1/6',
+              mobile: isCallout ? 'hidden' : 'row',
+              cell: (item) =>
+                isCallout ? '' : formatMoney(Number(item.unit_price), company.currency),
+            },
+          ]
+
           return (
             <div key={type} className="mt-6">
               <h3 className="mb-2 text-xs font-semibold text-muted">{LINE_ITEM_TYPE_LABELS[type]}</h3>
-              <div className="overflow-x-auto">
-              <table className="w-full table-fixed text-left text-sm">
-                <colgroup>
-                  <col className="w-1/2" />
-                  <col className="w-1/6" />
-                  <col className="w-1/6" />
-                  <col className="w-1/6" />
-                </colgroup>
-                <thead className="text-muted">
-                  <tr>
-                    <th className="py-1 font-medium">Description</th>
-                    <th className="py-1 font-medium">{type === 'callout' ? '' : type === 'labour' ? 'Hours' : 'Qty'}</th>
-                    <th className="py-1 font-medium">{type === 'callout' ? '' : type === 'labour' ? 'Rate' : 'Unit price'}</th>
-                    <th className="py-1 font-medium">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-t border-surface-border">
-                      <td className="py-2">{item.description}</td>
-                      <td className="py-2">{type === 'callout' ? '' : item.quantity}</td>
-                      <td className="py-2">
-                        {type === 'callout' ? '' : formatMoney(Number(item.unit_price), company.currency)}
-                      </td>
-                      <td className="py-2">{formatMoney(Number(item.line_total), company.currency)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
+              <DataTable columns={columns} rows={items} getRowKey={(item) => item.id} />
             </div>
           )
         })}
@@ -139,22 +148,18 @@ export default async function PublicQuotePage({
           ) : (
             <>
               {quote.status === 'sent' && (
-                <div className="flex items-center gap-3">
+                // Full-width on a phone: this is the one action the customer
+                // came here to take, and it's often taken one-handed.
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <form action={respondToQuote.bind(null, token, 'accepted')}>
-                    <button
-                      type="submit"
-                      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-                    >
+                    <Button type="submit" variant="primary" className="w-full sm:w-auto">
                       Accept quote
-                    </button>
+                    </Button>
                   </form>
                   <form action={respondToQuote.bind(null, token, 'declined')}>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-                    >
+                    <Button type="submit" className="w-full sm:w-auto">
                       Decline
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )}

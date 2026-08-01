@@ -5,16 +5,12 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyCurrency, getCompanyModules, getTimesheetSettings } from '@/lib/company'
 import { getPayrollReport, listRecentCycles } from '@/lib/payroll'
 import { formatMoney } from '@/lib/money'
+import { formatDate, formatTimestampDate } from '@/lib/dates'
 import { PAY_CYCLE_LENGTH_LABELS } from '@trade-assist/db'
 import { approvePayrollPeriod } from '../approval-actions'
 
 function localYMD(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function formatDate(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function formatTime(iso: string): string {
@@ -95,7 +91,7 @@ export default async function PayrollPage({
           </p>
           <p className="text-muted">
             {approvedAt
-              ? `Approved ${new Date(approvedAt).toLocaleDateString()}`
+              ? `Approved ${formatTimestampDate(approvedAt)}`
               : 'Not yet approved'}
             {totalUnsubmitted > 0 && ` · ${totalUnsubmitted} entr${totalUnsubmitted === 1 ? 'y' : 'ies'} not submitted`}
             {totalUnapproved > 0 && ` · ${totalUnapproved} entr${totalUnapproved === 1 ? 'y' : 'ies'} awaiting day approval`}

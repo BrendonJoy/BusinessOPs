@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules, getTimesheetSettings } from '@/lib/company'
+import { formatDayLabel } from '@/lib/dates'
 import { JOB_STATUS_GROUPS, TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
 import ClockWidget from './ClockWidget'
 import SubmitDayButton from './SubmitDayButton'
@@ -34,15 +35,6 @@ function localYMD(date: Date): string {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function formatDayLabel(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString([], {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
 }
 
 const DAY_STATUS_BADGES: Record<TimesheetDayStatus | 'unsubmitted', { label: string; className: string }> = {

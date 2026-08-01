@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { AccessLevel, Quote, QuoteLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
+import { formatTimestampDate } from '@/lib/dates'
 import {
   addQuoteLineItemsBulk,
   createQuote,
@@ -116,7 +117,7 @@ export default function QuotePanel({
                 {q.superseded_at && (
                   <span className="text-muted">
                     {' '}
-                    — superseded {new Date(q.superseded_at).toLocaleDateString()}
+                    — superseded {formatTimestampDate(q.superseded_at)}
                   </span>
                 )}
               </li>

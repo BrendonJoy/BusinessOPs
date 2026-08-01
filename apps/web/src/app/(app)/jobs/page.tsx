@@ -2,6 +2,16 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { JOB_STATUS_GROUPS, JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
+import { formatDate } from '@/lib/dates'
+import {
+  Badge,
+  ButtonLink,
+  DataTable,
+  EmptyState,
+  Notice,
+  PageHeader,
+  type Column,
+} from '@/components/ui'
 import JobsToolbar from './JobsToolbar'
 
 const VIEWS = ['active', 'completed', 'cancelled'] as const
@@ -95,17 +105,62 @@ export default async function JobsPage({
     return `/jobs?${query.toString()}`
   }
 
+  function sortHeader(column: SortColumn) {
+    return (
+      <Link href={headerHref(column)} className="hover:text-foreground">
+        {COLUMN_LABELS[column]}
+        {column === sort && <span className="ml-1">{dir === 'asc' ? '↑' : '↓'}</span>}
+      </Link>
+    )
+  }
+
+  const columns: Column<JobWithCustomer>[] = [
+    {
+      key: 'job_number',
+      header: sortHeader('job_number'),
+      mobile: 'title',
+      cell: (job) => (
+        <Link href={`/jobs/${job.id}`} className="font-medium text-accent">
+          {job.job_number ?? '—'}
+        </Link>
+      ),
+    },
+    {
+      key: 'customer',
+      header: sortHeader('customer'),
+      mobileLabel: COLUMN_LABELS.customer,
+      cell: (job) => job.customer?.name ?? '—',
+    },
+    {
+      key: 'status',
+      header: sortHeader('status'),
+      mobile: 'meta',
+      cell: (job) => <StatusBadge status={job.status} />,
+    },
+    {
+      key: 'start_date',
+      header: sortHeader('start_date'),
+      mobileLabel: COLUMN_LABELS.start_date,
+      cell: (job) => formatDate(job.start_date),
+    },
+    {
+      key: 'finish_date',
+      header: sortHeader('finish_date'),
+      mobileLabel: COLUMN_LABELS.finish_date,
+      cell: (job) => formatDate(job.finish_date),
+    },
+  ]
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Jobs</h1>
-        <Link
-          href="/jobs/new"
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
-          New job
-        </Link>
-      </div>
+      <PageHeader
+        title="Jobs"
+        actions={
+          <ButtonLink href="/jobs/new" variant="primary">
+            New job
+          </ButtonLink>
+        }
+      />
 
       <div className="mb-6 flex gap-4 border-b border-surface-border text-sm">
         {VIEWS.map((v) => (
@@ -134,57 +189,34 @@ export default async function JobsPage({
         }
       />
 
-      {error && <p className="text-sm text-accent">Failed to load jobs: {error.message}</p>}
+      {error && <Notice tone="error">Failed to load jobs: {error.message}</Notice>}
 
-      {jobs.length === 0 ? (
-        <p className="text-sm text-muted">
-          {status || q
-            ? 'No jobs match your search or filter.'
-            : `No ${VIEW_LABELS[view].toLowerCase()} jobs.`}
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-surface-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface text-muted">
-              <tr>
-                {SORT_COLUMNS.map((column) => (
-                  <th key={column} className="px-4 py-2 font-medium">
-                    <Link href={headerHref(column)} className="hover:text-foreground">
-                      {COLUMN_LABELS[column]}
-                      {column === sort && <span className="ml-1">{dir === 'asc' ? '↑' : '↓'}</span>}
-                    </Link>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <tr key={job.id} className="border-t border-surface-border hover:bg-surface">
-                  <td className="px-4 py-2">
-                    <Link href={`/jobs/${job.id}`} className="font-medium text-accent">
-                      {job.job_number ?? '—'}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2">{job.customer?.name ?? '—'}</td>
-                  <td className="px-4 py-2">
-                    <StatusBadge status={job.status} />
-                  </td>
-                  <td className="px-4 py-2">{job.start_date ?? '—'}</td>
-                  <td className="px-4 py-2">{job.finish_date ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={jobs}
+        getRowKey={(job) => job.id}
+        getRowHref={(job) => `/jobs/${job.id}`}
+        empty={
+          <EmptyState
+            title={
+              status || q
+                ? 'No jobs match your search or filter.'
+                : `No ${VIEW_LABELS[view].toLowerCase()} jobs.`
+            }
+            action={
+              status || q ? undefined : (
+                <ButtonLink href="/jobs/new" variant="primary">
+                  New job
+                </ButtonLink>
+              )
+            }
+          />
+        }
+      />
     </div>
   )
 }
 
 function StatusBadge({ status }: { status: JobStatus }) {
-  return (
-    <span className="inline-flex items-center rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-foreground">
-      {JOB_STATUS_LABELS[status]}
-    </span>
-  )
+  return <Badge tone="muted">{JOB_STATUS_LABELS[status]}</Badge>
 }

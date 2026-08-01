@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { Customer, Job } from '@trade-assist/db'
+import { formatDate } from '@/lib/dates'
+import { Button, Card, EmptyState, Field, Input, Notice, Textarea } from '@/components/ui'
 import { updateCustomer } from '../actions'
 
 type JobSummary = Pick<Job, 'id' | 'job_number' | 'status' | 'start_date'>
@@ -40,100 +42,56 @@ export default async function CustomerDetailPage({
         <h1 className="mt-2 text-xl font-semibold">{customer.name}</h1>
       </div>
 
-      {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Details</h2>
         <form action={boundUpdate} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="name" className="text-sm font-medium">
-              Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              defaultValue={customer.name}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              defaultValue={customer.email ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="phone" className="text-sm font-medium">
-              Phone
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="text"
-              defaultValue={customer.phone ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="address" className="text-sm font-medium">
-              Address
-            </label>
-            <textarea
-              id="address"
-              name="address"
-              rows={2}
-              defaultValue={customer.address ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="notes" className="text-sm font-medium">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              rows={3}
-              defaultValue={customer.notes ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-          >
+          <Field label="Name" htmlFor="name" required>
+            <Input id="name" name="name" type="text" required defaultValue={customer.name} />
+          </Field>
+          <Field label="Email" htmlFor="email">
+            <Input id="email" name="email" type="email" defaultValue={customer.email ?? ''} />
+          </Field>
+          <Field label="Phone" htmlFor="phone">
+            <Input id="phone" name="phone" type="tel" defaultValue={customer.phone ?? ''} />
+          </Field>
+          <Field label="Address" htmlFor="address">
+            <Textarea id="address" name="address" rows={2} defaultValue={customer.address ?? ''} />
+          </Field>
+          <Field label="Notes" htmlFor="notes">
+            <Textarea id="notes" name="notes" rows={3} defaultValue={customer.notes ?? ''} />
+          </Field>
+          <Button type="submit" variant="primary" className="w-full sm:w-auto sm:self-start">
             Save customer
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Jobs ({jobs.length})</h2>
         {jobs.length === 0 ? (
-          <p className="text-sm text-muted">No jobs for this customer yet.</p>
+          <EmptyState title="No jobs for this customer yet." />
         ) : (
-          <ul className="flex flex-col gap-2 text-sm">
+          <ul className="flex flex-col gap-1 text-sm">
             {jobs.map((job) => (
               <li key={job.id}>
-                <Link href={`/jobs/${job.id}`} className="hover:text-accent">
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="block rounded-md px-2 py-2.5 hover:bg-surface hover:text-accent sm:py-1"
+                >
                   <span className="font-medium">{job.job_number ?? 'Job'}</span>
                   {' — '}
                   <span>{JOB_STATUS_LABELS[job.status]}</span>
-                  {job.start_date && <span className="text-muted"> — {job.start_date}</span>}
+                  {job.start_date && (
+                    <span className="text-muted"> — {formatDate(job.start_date)}</span>
+                  )}
                 </Link>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   )
 }

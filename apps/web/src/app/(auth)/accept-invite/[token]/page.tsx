@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { Button, Field, Input, Notice } from '@/components/ui'
 import { acceptInvite } from './actions'
 
 type InviteLookup = {
@@ -48,48 +49,34 @@ export default async function AcceptInvitePage({
       </p>
 
       {error && (
-        <p className="mb-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>
+        <Notice tone="error" className="mb-4">
+          {error}
+        </Notice>
       )}
 
       <form action={boundAccept} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">Email</label>
-          <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Email</span>
+          <p className="min-h-11 rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted sm:min-h-9">
             {invite.email}
           </p>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="full_name" className="text-sm font-medium">
-            Your name
-          </label>
-          <input
-            id="full_name"
-            name="full_name"
-            type="text"
-            required
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
+        <Field label="Your name" htmlFor="full_name">
+          <Input id="full_name" name="full_name" type="text" required autoComplete="name" />
+        </Field>
+        <Field label="Password" htmlFor="password" hint="At least 8 characters.">
+          <Input
             id="password"
             name="password"
             type="password"
             required
             minLength={8}
             autoComplete="new-password"
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
-        </div>
-        <button
-          type="submit"
-          className="mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
+        </Field>
+        <Button type="submit" variant="primary" className="mt-2">
           Join {invite.company_name}
-        </button>
+        </Button>
       </form>
     </div>
   )

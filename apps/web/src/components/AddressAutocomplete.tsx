@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { buttonClasses, inputClasses } from '@/components/ui'
 
 type Suggestion = { placeId: string; description: string }
 type ValueChange = { address: string; lat: number | null; lng: number | null }
@@ -144,10 +145,7 @@ export default function AddressAutocomplete({
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
           onFocus={() => suggestions.length > 0 && setIsOpen(true)}
-          className={
-            className ??
-            'w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none'
-          }
+          className={className ?? inputClasses()}
         />
         {geoLatName && <input type="hidden" name={geoLatName} value={lat ?? ''} />}
         {geoLngName && <input type="hidden" name={geoLngName} value={lng ?? ''} />}
@@ -158,7 +156,8 @@ export default function AddressAutocomplete({
             onClick={handleUseLocation}
             disabled={isLocating}
             title="Use my current location"
-            className="shrink-0 rounded-md border border-surface-border px-3 py-2 text-sm hover:border-accent disabled:opacity-50"
+            aria-label="Use my current location"
+            className={buttonClasses('secondary', 'md', 'shrink-0 px-3')}
           >
             {isLocating ? '…' : '📍'}
           </button>
@@ -172,7 +171,7 @@ export default function AddressAutocomplete({
               <button
                 type="button"
                 onClick={() => handleSelect(s)}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-surface"
+                className="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-surface sm:min-h-0"
               >
                 {s.description}
               </button>

@@ -6,6 +6,16 @@ import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, canViewReports, isCompanyAccount } from '@/lib/roles'
 import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Stat,
+  type Column,
+} from '@/components/ui'
 
 type ReportJob = Job & {
   customer: Pick<Customer, 'name'> | null
@@ -54,104 +64,73 @@ export default async function ReportsPage({
     { invoiced: 0, costs: 0, profit: 0 }
   )
 
+  const columns: Column<(typeof rows)[number]>[] = [
+    {
+      key: 'job_number',
+      header: 'Job #',
+      mobile: 'title',
+      className: 'font-medium',
+      cell: (r) => r.job.job_number ?? '—',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      mobile: 'meta',
+      className: 'capitalize',
+      cell: (r) => <span className="capitalize">{r.job.status.replace('_', ' ')}</span>,
+    },
+    { key: 'customer', header: 'Customer', cell: (r) => r.job.customer?.name ?? '—' },
+    {
+      key: 'invoiced',
+      header: 'Invoiced',
+      cell: (r) => formatMoney(r.invoicedTotal, currency),
+    },
+    { key: 'costs', header: 'Costs', cell: (r) => formatMoney(r.costsTotal, currency) },
+    { key: 'profit', header: 'Profit', cell: (r) => formatMoney(r.profit, currency) },
+  ]
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Reports</h1>
-        {isCompanyAccount(profile?.role) && (
-          <div className="flex gap-4">
-            <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
-              View staff timesheets →
-            </Link>
-            <Link href="/timesheet/payroll" className="text-sm text-accent hover:opacity-80">
-              Payroll →
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Reports"
+        actions={
+          isCompanyAccount(profile?.role) && (
+            <>
+              <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
+                View staff timesheets →
+              </Link>
+              <Link href="/timesheet/payroll" className="text-sm text-accent hover:opacity-80">
+                Payroll →
+              </Link>
+            </>
+          )
+        }
+      />
 
       <form className="mb-6 flex flex-wrap items-end gap-3" method="get">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="from" className="text-xs font-medium">
-            From
-          </label>
-          <input
-            id="from"
-            name="from"
-            type="date"
-            defaultValue={from}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="to" className="text-xs font-medium">
-            To
-          </label>
-          <input
-            id="to"
-            name="to"
-            type="date"
-            defaultValue={to}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-        >
-          Filter
-        </button>
+        <Field label="From" htmlFor="from">
+          <Input id="from" name="from" type="date" defaultValue={from} fullWidth={false} />
+        </Field>
+        <Field label="To" htmlFor="to">
+          <Input id="to" name="to" type="date" defaultValue={to} fullWidth={false} />
+        </Field>
+        <Button type="submit">Filter</Button>
       </form>
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-xs text-muted">Total invoiced</p>
-          <p className="text-lg font-semibold">{formatMoney(totals.invoiced, currency)}</p>
-        </div>
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-xs text-muted">Total costs</p>
-          <p className="text-lg font-semibold">{formatMoney(totals.costs, currency)}</p>
-        </div>
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-xs text-muted">Total profit</p>
-          <p className="text-lg font-semibold">{formatMoney(totals.profit, currency)}</p>
-        </div>
-        <div className="rounded-lg border border-surface-border p-4">
-          <p className="text-xs text-muted">Jobs</p>
-          <p className="text-lg font-semibold">{rows.length}</p>
-        </div>
+        <Stat label="Total invoiced" value={formatMoney(totals.invoiced, currency)} />
+        <Stat label="Total costs" value={formatMoney(totals.costs, currency)} />
+        <Stat label="Total profit" value={formatMoney(totals.profit, currency)} />
+        <Stat label="Jobs" value={rows.length} />
       </div>
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted">No jobs with a start date in this range.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-surface-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Job #</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Invoiced</th>
-                <th className="px-4 py-2 font-medium">Costs</th>
-                <th className="px-4 py-2 font-medium">Profit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ job, costsTotal, invoicedTotal, profit }) => (
-                <tr key={job.id} className="border-t border-surface-border">
-                  <td className="px-4 py-2 font-medium">{job.job_number ?? '—'}</td>
-                  <td className="px-4 py-2">{job.customer?.name ?? '—'}</td>
-                  <td className="px-4 py-2 capitalize">{job.status.replace('_', ' ')}</td>
-                  <td className="px-4 py-2">{formatMoney(invoicedTotal, currency)}</td>
-                  <td className="px-4 py-2">{formatMoney(costsTotal, currency)}</td>
-                  <td className="px-4 py-2">{formatMoney(profit, currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.job.id}
+        getRowHref={(r) => `/jobs/${r.job.id}`}
+        empty={<EmptyState title="No jobs with a start date in this range." />}
+      />
     </div>
   )
 }

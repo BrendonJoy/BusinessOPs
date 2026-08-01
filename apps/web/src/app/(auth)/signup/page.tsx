@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Button, Field, Input, Notice } from '@/components/ui'
 import { signup } from './actions'
 
 export default async function SignupPage({
@@ -14,67 +15,34 @@ export default async function SignupPage({
       <p className="mb-6 text-sm text-muted">Set up BusinessOps for your business.</p>
 
       {error && (
-        <p className="mb-4 rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>
+        <Notice tone="error" className="mb-4">
+          {error}
+        </Notice>
       )}
 
       <form action={signup} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="company_name" className="text-sm font-medium">
-            Company name
-          </label>
-          <input
-            id="company_name"
-            name="company_name"
-            type="text"
-            required
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="full_name" className="text-sm font-medium">
-            Your name
-          </label>
-          <input
-            id="full_name"
-            name="full_name"
-            type="text"
-            required
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
+        <Field label="Company name" htmlFor="company_name">
+          <Input id="company_name" name="company_name" type="text" required />
+        </Field>
+        <Field label="Your name" htmlFor="full_name">
+          <Input id="full_name" name="full_name" type="text" required autoComplete="name" />
+        </Field>
+        <Field label="Email" htmlFor="email">
+          <Input id="email" name="email" type="email" required autoComplete="email" />
+        </Field>
+        <Field label="Password" htmlFor="password" hint="At least 8 characters.">
+          <Input
             id="password"
             name="password"
             type="password"
             required
             minLength={8}
             autoComplete="new-password"
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
-        </div>
-        <button
-          type="submit"
-          className="mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
+        </Field>
+        <Button type="submit" variant="primary" className="mt-2">
           Sign up
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-sm text-muted">

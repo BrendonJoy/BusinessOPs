@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { Button, Field, Input, Textarea, checkboxClasses } from '@/components/ui'
 
 type FormValues = {
   customerName: string
@@ -106,11 +107,11 @@ export default function NewJobForm({
         <fieldset className="flex flex-col gap-4 rounded-lg border border-surface-border p-4">
           <legend className="px-1 text-sm font-medium">Customer</legend>
           <input type="hidden" name="customer_id" value={selectedCustomerId ?? ''} />
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label htmlFor="customer_name" className="text-sm font-medium">
               Name
             </label>
-            <input
+            <Input
               id="customer_name"
               name="customer_name"
               type="text"
@@ -118,7 +119,6 @@ export default function NewJobForm({
               list="customer-names"
               value={form.customerName}
               onChange={(e) => handleCustomerNameChange(e.target.value)}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />
             <datalist id="customer-names">
               {customers.map((c) => (
@@ -137,34 +137,26 @@ export default function NewJobForm({
             )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="customer_email" className="text-sm font-medium">
-                Email
-              </label>
-              <input
+            <Field label="Email" htmlFor="customer_email">
+              <Input
                 id="customer_email"
                 name="customer_email"
                 type="email"
                 value={form.customerEmail}
                 onChange={(e) => updateField('customerEmail', e.target.value)}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="customer_phone" className="text-sm font-medium">
-                Phone
-              </label>
-              <input
+            </Field>
+            <Field label="Phone" htmlFor="customer_phone">
+              <Input
                 id="customer_phone"
                 name="customer_phone"
                 type="tel"
                 value={form.customerPhone}
                 onChange={(e) => updateField('customerPhone', e.target.value)}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
-            </div>
+            </Field>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label htmlFor="customer_address" className="text-sm font-medium">
               Customer address
             </label>
@@ -177,26 +169,28 @@ export default function NewJobForm({
           </div>
         </fieldset>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="address_line" className="text-sm font-medium">
             Job address
           </label>
-          <label className="flex items-center gap-2 text-xs text-muted">
+          <label className="flex min-h-11 items-center gap-2 text-sm text-muted sm:min-h-0">
             <input
               type="checkbox"
               checked={sameAsCustomerAddress}
               onChange={(e) => toggleSameAsCustomerAddress(e.target.checked)}
               disabled={!form.customerAddress.trim()}
+              className={checkboxClasses()}
             />
             Same as customer address
           </label>
           {sameAsCustomerAddress ? (
             <>
-              <input
+              <Input
                 type="text"
                 readOnly
+                aria-label="Job address"
                 value={isGeocoding ? 'Locating…' : form.customerAddress}
-                className="w-full rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted"
+                className="bg-surface text-muted"
               />
               <input type="hidden" name="address_line" value={form.customerAddress} />
               <input type="hidden" name="geo_lat" value={jobGeo.lat ?? ''} />
@@ -215,75 +209,77 @@ export default function NewJobForm({
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="start_date" className="text-sm font-medium">
-              Start date
-            </label>
+          <Field label="Start date" htmlFor="start_date">
             <div className="flex gap-2">
-              <input
+              <Input
                 id="start_date"
                 name="start_date"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => updateField('startDate', e.target.value)}
-                className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className="min-w-0 flex-1"
               />
-              <input
+              <Input
                 id="start_time"
                 name="start_time"
                 type="time"
+                aria-label="Start time"
                 value={form.startTime}
                 onChange={(e) => updateField('startTime', e.target.value)}
-                className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                fullWidth={false}
+                className="w-32 shrink-0"
               />
             </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="finish_date" className="text-sm font-medium">
-              Finish date
-            </label>
+          </Field>
+          <Field label="Finish date" htmlFor="finish_date">
             <div className="flex gap-2">
-              <input
+              <Input
                 id="finish_date"
                 name="finish_date"
                 type="date"
                 value={form.finishDate}
                 onChange={(e) => updateField('finishDate', e.target.value)}
-                className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className="min-w-0 flex-1"
               />
-              <input
+              <Input
                 id="finish_time"
                 name="finish_time"
                 type="time"
+                aria-label="Finish time"
                 value={form.finishTime}
                 onChange={(e) => updateField('finishTime', e.target.value)}
-                className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                fullWidth={false}
+                className="w-32 shrink-0"
               />
             </div>
-          </div>
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="notes" className="text-sm font-medium">
-            Notes
-          </label>
-          <textarea
+        <Field label="Notes" htmlFor="notes">
+          <Textarea
             id="notes"
             name="notes"
             rows={3}
             value={form.notes}
             onChange={(e) => updateField('notes', e.target.value)}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
-        </div>
+        </Field>
 
         {teamOptions.length > 0 && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Assigned to</span>
-            <div className="flex flex-col gap-2 rounded-md border border-surface-border px-3 py-2">
+            <div className="flex flex-col gap-1 rounded-md border border-surface-border px-3 py-2">
               {teamOptions.map((member) => (
-                <label key={member.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="assigned_user_ids" value={member.id} />
+                <label
+                  key={member.id}
+                  className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0 sm:py-1"
+                >
+                  <input
+                    type="checkbox"
+                    name="assigned_user_ids"
+                    value={member.id}
+                    className={checkboxClasses()}
+                  />
                   {member.full_name ?? member.email}
                 </label>
               ))}
@@ -291,12 +287,9 @@ export default function NewJobForm({
           </div>
         )}
 
-        <button
-          type="submit"
-          className="mt-2 self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
+        <Button type="submit" variant="primary" className="mt-2 w-full sm:w-auto sm:self-start">
           Create job
-        </button>
+        </Button>
       </form>
     </div>
   )

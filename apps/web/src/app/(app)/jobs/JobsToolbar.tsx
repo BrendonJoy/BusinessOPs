@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button, Input, Select } from '@/components/ui'
 
 type StatusOption = { value: string; label: string }
 
@@ -43,18 +44,19 @@ export default function JobsToolbar({
         router.push(buildUrl({}))
       }}
     >
-      <input
-        type="text"
+      <Input
+        type="search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search job number, customer, address..."
-        className="min-w-[240px] flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+        aria-label="Search jobs"
+        className="min-w-[240px] flex-1"
       />
       {statusOptions.length > 0 && (
-        <select
+        <Select
           value={status}
           onChange={(e) => router.push(buildUrl({ status: e.target.value }))}
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          aria-label="Filter by status"
         >
           <option value="">All active statuses</option>
           {statusOptions.map((option) => (
@@ -62,14 +64,9 @@ export default function JobsToolbar({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       )}
-      <button
-        type="submit"
-        className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-      >
-        Search
-      </button>
+      <Button type="submit">Search</Button>
     </form>
   )
 }

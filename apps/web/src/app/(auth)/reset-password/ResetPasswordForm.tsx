@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Button, Field, Input, Notice } from '@/components/ui'
 
 export default function ResetPasswordForm() {
   const router = useRouter()
@@ -91,41 +92,17 @@ export default function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          New password
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="new-password"
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="confirm" className="text-sm font-medium">
-          Confirm new password
-        </label>
-        <input
-          id="confirm"
-          name="confirm"
-          type="password"
-          required
-          autoComplete="new-password"
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={submitting}
-        className="mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
-      >
+      <Field label="New password" htmlFor="password" hint="At least 8 characters.">
+        <Input id="password" name="password" type="password" required autoComplete="new-password" />
+      </Field>
+      <Field label="Confirm new password" htmlFor="confirm">
+        <Input id="confirm" name="confirm" type="password" required autoComplete="new-password" />
+      </Field>
+      <Button type="submit" variant="primary" disabled={submitting} className="mt-2">
         {submitting ? 'Saving…' : 'Set new password'}
-      </button>
+      </Button>
     </form>
   )
 }

@@ -23,6 +23,21 @@ import DeleteJobButton from './DeleteJobButton'
 import JobAddressField from '@/components/JobAddressField'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import FileUploadButtons from '@/components/FileUploadButtons'
+import { formatDate } from '@/lib/dates'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  Field,
+  Input,
+  Notice,
+  Select,
+  Stat,
+  Textarea,
+  checkboxClasses,
+  type Column,
+} from '@/components/ui'
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'avif']
 
@@ -192,31 +207,93 @@ export default async function JobDetailPage({
   const boundUploadJobFile = uploadJobFile.bind(null, job.id)
   const boundUploadExpense = uploadExpenseForJob.bind(null, job.id)
 
+  const costColumns: Column<CostEntry>[] = [
+    {
+      key: 'description',
+      header: 'Description',
+      mobile: 'title',
+      cell: (entry) => {
+        const receiptUrl = receiptByCostEntryId.get(entry.id)
+        return (
+          <>
+            {entry.description}
+            {receiptUrl !== undefined && (
+              <>
+                {' '}
+                {receiptUrl ? (
+                  <a
+                    href={receiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-accent hover:opacity-80"
+                  >
+                    (receipt)
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted">(receipt)</span>
+                )}
+              </>
+            )}
+          </>
+        )
+      },
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      mobile: 'meta',
+      cell: (entry) => formatMoney(Number(entry.total_cost), currency),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      className: 'capitalize',
+      cell: (entry) => <span className="capitalize">{entry.type}</span>,
+    },
+    { key: 'quantity', header: 'Qty', mobileLabel: 'Qty', cell: (entry) => entry.quantity },
+    {
+      key: 'unit_cost',
+      header: 'Unit cost',
+      cell: (entry) => formatMoney(Number(entry.unit_cost), currency),
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'text-right',
+      mobileLabel: '',
+      cell: (entry) =>
+        entry.invoiced_at ? (
+          <Badge tone="muted">Invoiced</Badge>
+        ) : (
+          canEditJob && (
+            <form action={deleteCostEntry.bind(null, job.id, entry.id)}>
+              <button type="submit" className="text-xs text-muted hover:text-accent">
+                Remove
+              </button>
+            </form>
+          )
+        ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-8">
-      {actionError && (
-        <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
-      )}
+      {actionError && <Notice tone="error">{actionError}</Notice>}
 
       <div>
         <p className="text-sm text-muted">Job</p>
-        <h1 className="text-2xl font-semibold">{job.job_number ?? '—'}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{job.job_number ?? '—'}</h1>
         <p className="text-sm text-muted">{job.customer?.name ?? 'No customer'}</p>
-        <div className="mt-3 flex gap-6 text-sm">
-          <span>
-            Invoiced: <span className="font-medium">{formatMoney(invoicedTotal, currency)}</span>
-          </span>
-          <span>
-            Costs:{' '}
-            <span className="font-medium">{formatMoney(materialsTotal + labourTotal, currency)}</span>
-          </span>
-          <span>
-            Profit: <span className="font-medium">{formatMoney(profit, currency)}</span>
-          </span>
+        {/* Tiles rather than an inline run of text — three money figures on one
+            line wrapped mid-label at phone width. */}
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <Stat label="Invoiced" value={formatMoney(invoicedTotal, currency)} />
+          <Stat label="Costs" value={formatMoney(materialsTotal + labourTotal, currency)} />
+          <Stat label="Profit" value={formatMoney(profit, currency)} />
         </div>
       </div>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Photos &amp; files</h2>
 
         {filesWithUrls.length > 0 && (
@@ -263,30 +340,22 @@ export default async function JobDetailPage({
         {filesWithUrls.length === 0 && <p className="mb-4 text-sm text-muted">No photos or files yet.</p>}
 
         {canEditJob && <FileUploadButtons action={boundUploadJobFile} camera />}
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Details</h2>
 
         {canEditJob ? (
           <form action={boundUpdateJob} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="status" className="text-sm font-medium">
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={job.status}
-                className="max-w-xs rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              >
+            <Field label="Status" htmlFor="status" className="max-w-xs">
+              <Select id="status" name="status" defaultValue={job.status} fullWidth>
                 {JOB_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {JOB_STATUS_LABELS[s]}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
             <JobAddressField
               defaultValue={job.address_line ?? ''}
@@ -296,69 +365,55 @@ export default async function JobDetailPage({
             />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="start_date" className="text-sm font-medium">
-                  Start date
-                </label>
+              <Field label="Start date" htmlFor="start_date">
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     id="start_date"
                     name="start_date"
                     type="date"
                     defaultValue={job.start_date ?? ''}
-                    className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="min-w-0 flex-1"
                   />
-                  <input
+                  <Input
                     id="start_time"
                     name="start_time"
                     type="time"
                     defaultValue={job.start_time ?? ''}
-                    className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    aria-label="Start time"
+                    fullWidth={false}
+                    className="w-32 shrink-0"
                   />
                 </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label htmlFor="finish_date" className="text-sm font-medium">
-                  Finish date
-                </label>
+              </Field>
+              <Field label="Finish date" htmlFor="finish_date">
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     id="finish_date"
                     name="finish_date"
                     type="date"
                     defaultValue={job.finish_date ?? ''}
-                    className="flex-1 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="min-w-0 flex-1"
                   />
-                  <input
+                  <Input
                     id="finish_time"
                     name="finish_time"
                     type="time"
                     defaultValue={job.finish_time ?? ''}
-                    className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    aria-label="Finish time"
+                    fullWidth={false}
+                    className="w-32 shrink-0"
                   />
                 </div>
-              </div>
+              </Field>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label htmlFor="notes" className="text-sm font-medium">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                rows={3}
-                defaultValue={job.notes ?? ''}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-              />
-            </div>
+            <Field label="Notes" htmlFor="notes">
+              <Textarea id="notes" name="notes" rows={3} defaultValue={job.notes ?? ''} />
+            </Field>
 
-            <button
-              type="submit"
-              className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-            >
+            <Button type="submit" variant="primary" className="self-start">
               Save
-            </button>
+            </Button>
           </form>
         ) : (
           <div className="flex flex-col gap-4 text-sm">
@@ -374,13 +429,13 @@ export default async function JobDetailPage({
               <div>
                 <p className="text-xs font-medium text-muted">Start date</p>
                 <p>
-                  {job.start_date ?? '—'} {job.start_time ?? ''}
+                  {formatDate(job.start_date)} {job.start_time ?? ''}
                 </p>
               </div>
               <div>
                 <p className="text-xs font-medium text-muted">Finish date</p>
                 <p>
-                  {job.finish_date ?? '—'} {job.finish_time ?? ''}
+                  {formatDate(job.finish_date)} {job.finish_time ?? ''}
                 </p>
               </div>
             </div>
@@ -444,7 +499,7 @@ export default async function JobDetailPage({
             <DeleteJobButton jobNumber={job.job_number ?? 'this job'} deleteJob={deleteJob.bind(null, job.id)} />
           </div>
         )}
-      </section>
+      </Card>
 
       <QuotePanel
         key={quote?.id ?? 'none'}
@@ -472,85 +527,22 @@ export default async function JobDetailPage({
         accessLevel={invoicesAccessLevel}
       />
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Costs</h2>
 
-        <div className="mb-4 flex gap-6 text-sm">
-          <span>
-            Materials: <span className="font-medium">{formatMoney(materialsTotal, currency)}</span>
-          </span>
-          <span>
-            Labour: <span className="font-medium">{formatMoney(labourTotal, currency)}</span>
-          </span>
-          <span>
-            Total:{' '}
-            <span className="font-medium">{formatMoney(materialsTotal + labourTotal, currency)}</span>
-          </span>
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <Stat label="Materials" value={formatMoney(materialsTotal, currency)} />
+          <Stat label="Labour" value={formatMoney(labourTotal, currency)} />
+          <Stat label="Total" value={formatMoney(materialsTotal + labourTotal, currency)} />
         </div>
 
         {job.cost_entries.length > 0 && (
-          <div className="mb-4 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-muted">
-              <tr>
-                <th className="py-1 font-medium">Type</th>
-                <th className="py-1 font-medium">Description</th>
-                <th className="py-1 font-medium">Qty</th>
-                <th className="py-1 font-medium">Unit cost</th>
-                <th className="py-1 font-medium">Total</th>
-                <th className="py-1" />
-              </tr>
-            </thead>
-            <tbody>
-              {job.cost_entries.map((entry) => {
-                const boundDelete = deleteCostEntry.bind(null, job.id, entry.id)
-                const receiptUrl = receiptByCostEntryId.get(entry.id)
-                return (
-                  <tr key={entry.id} className="border-t border-surface-border">
-                    <td className="py-1 capitalize">{entry.type}</td>
-                    <td className="py-1">
-                      {entry.description}
-                      {receiptUrl !== undefined && (
-                        <>
-                          {' '}
-                          {receiptUrl ? (
-                            <a
-                              href={receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-accent hover:opacity-80"
-                            >
-                              (receipt)
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted">(receipt)</span>
-                          )}
-                        </>
-                      )}
-                    </td>
-                    <td className="py-1">{entry.quantity}</td>
-                    <td className="py-1">{formatMoney(Number(entry.unit_cost), currency)}</td>
-                    <td className="py-1">{formatMoney(Number(entry.total_cost), currency)}</td>
-                    <td className="py-1 text-right">
-                      {entry.invoiced_at ? (
-                        <span className="inline-flex items-center rounded-full bg-surface px-2 py-0.5 text-xs text-muted">
-                          Invoiced
-                        </span>
-                      ) : (
-                        canEditJob && (
-                          <form action={boundDelete}>
-                            <button type="submit" className="text-xs text-muted hover:text-accent">
-                              Remove
-                            </button>
-                          </form>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="mb-4">
+            <DataTable
+              columns={costColumns}
+              rows={job.cost_entries}
+              getRowKey={(entry) => entry.id}
+            />
           </div>
         )}
 
@@ -598,60 +590,53 @@ export default async function JobDetailPage({
                       </ConfirmSubmitButton>
                     </div>
 
-                    <form action={boundAssignExpense} className="flex flex-wrap items-end gap-3">
+                    <form
+                      action={boundAssignExpense}
+                      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+                    >
                       <input type="hidden" name="job_id" value={job.id} />
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor={`expense-description-${expense.id}`} className="text-xs font-medium">
-                          Description
-                        </label>
-                        <input
+                      <Field
+                        label="Description"
+                        htmlFor={`expense-description-${expense.id}`}
+                        required
+                        className="min-w-[200px] flex-1"
+                      >
+                        <Input
                           id={`expense-description-${expense.id}`}
                           name="description"
                           type="text"
                           defaultValue={expense.description}
                           required
-                          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                         />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor={`expense-amount-${expense.id}`} className="text-xs font-medium">
-                          Amount paid
-                        </label>
-                        <input
+                      </Field>
+                      <Field label="Amount paid" htmlFor={`expense-amount-${expense.id}`}>
+                        <Input
                           id={`expense-amount-${expense.id}`}
                           name="amount"
                           type="number"
+                          inputMode="decimal"
                           step="0.01"
                           defaultValue={expense.amount}
-                          className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                          className="sm:w-28"
                         />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium">
-                          <input type="checkbox" name="gst_applies" />
-                          {taxLabel} applies
-                        </label>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor={`expense-type-${expense.id}`} className="text-xs font-medium">
-                          Type
-                        </label>
-                        <select
+                      </Field>
+                      <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:min-h-9 sm:whitespace-nowrap">
+                        <input type="checkbox" name="gst_applies" className={checkboxClasses()} />
+                        {taxLabel} applies
+                      </label>
+                      <Field label="Type" htmlFor={`expense-type-${expense.id}`}>
+                        <Select
                           id={`expense-type-${expense.id}`}
                           name="type"
                           defaultValue="material"
-                          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                         >
                           <option value="material">Material</option>
                           <option value="labour">Labour</option>
-                        </select>
-                      </div>
-                      <button
-                        type="submit"
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-                      >
+                        </Select>
+                      </Field>
+                      <Button type="submit" variant="primary">
                         Add as cost
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 )
@@ -660,9 +645,9 @@ export default async function JobDetailPage({
           )}
         </div>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Activity</h2>
 
         {auditLog.length === 0 ? (
@@ -677,7 +662,7 @@ export default async function JobDetailPage({
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   )
 }

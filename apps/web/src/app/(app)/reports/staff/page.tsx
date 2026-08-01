@@ -5,6 +5,15 @@ import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
 import { getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { TimesheetMiscCategory } from '@trade-assist/db'
+import {
+  Button,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  type Column,
+} from '@/components/ui'
 
 type EntryRow = {
   id: string
@@ -110,78 +119,53 @@ export default async function StaffTimesheetReportPage({
 
   const staffRows = Array.from(byStaff.values()).sort((a, b) => a.name.localeCompare(b.name))
 
+  const columns: Column<(typeof staffRows)[number]>[] = [
+    {
+      key: 'name',
+      header: 'Staff',
+      mobile: 'title',
+      className: 'font-medium',
+      cell: (row) => row.name,
+    },
+    {
+      key: 'hours',
+      header: 'Total hours',
+      mobile: 'meta',
+      cell: (row) => row.totalHours.toFixed(2),
+    },
+    { key: 'lateCount', header: 'Late arrivals', cell: (row) => row.lateCount },
+    { key: 'lateMinutes', header: 'Total late (min)', cell: (row) => row.lateMinutes },
+    { key: 'overCount', header: 'Over-time clock-outs', cell: (row) => row.overCount },
+    { key: 'overMinutes', header: 'Total over (min)', cell: (row) => row.overMinutes },
+  ]
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Staff timesheets</h1>
-        <Link href="/reports" className="text-sm text-accent hover:opacity-80">
-          ← Back to Reports
-        </Link>
-      </div>
+      <PageHeader
+        title="Staff timesheets"
+        actions={
+          <Link href="/reports" className="text-sm text-accent hover:opacity-80">
+            ← Back to Reports
+          </Link>
+        }
+      />
 
       <form className="mb-6 flex flex-wrap items-end gap-3" method="get">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="from" className="text-xs font-medium">
-            From
-          </label>
-          <input
-            id="from"
-            name="from"
-            type="date"
-            defaultValue={from}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="to" className="text-xs font-medium">
-            To
-          </label>
-          <input
-            id="to"
-            name="to"
-            type="date"
-            defaultValue={to}
-            className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-        >
-          Filter
-        </button>
+        <Field label="From" htmlFor="from">
+          <Input id="from" name="from" type="date" defaultValue={from} fullWidth={false} />
+        </Field>
+        <Field label="To" htmlFor="to">
+          <Input id="to" name="to" type="date" defaultValue={to} fullWidth={false} />
+        </Field>
+        <Button type="submit">Filter</Button>
       </form>
 
-      {staffRows.length === 0 ? (
-        <p className="text-sm text-muted">No timesheet entries in this range.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-surface-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface text-muted">
-              <tr>
-                <th className="px-4 py-2 font-medium">Staff</th>
-                <th className="px-4 py-2 font-medium">Total hours</th>
-                <th className="px-4 py-2 font-medium">Late arrivals</th>
-                <th className="px-4 py-2 font-medium">Total late (min)</th>
-                <th className="px-4 py-2 font-medium">Over-time clock-outs</th>
-                <th className="px-4 py-2 font-medium">Total over (min)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staffRows.map((row) => (
-                <tr key={row.name} className="border-t border-surface-border">
-                  <td className="px-4 py-2 font-medium">{row.name}</td>
-                  <td className="px-4 py-2">{row.totalHours.toFixed(2)}</td>
-                  <td className="px-4 py-2">{row.lateCount}</td>
-                  <td className="px-4 py-2">{row.lateMinutes}</td>
-                  <td className="px-4 py-2">{row.overCount}</td>
-                  <td className="px-4 py-2">{row.overMinutes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={staffRows}
+        getRowKey={(row) => row.name}
+        empty={<EmptyState title="No timesheet entries in this range." />}
+      />
     </div>
   )
 }

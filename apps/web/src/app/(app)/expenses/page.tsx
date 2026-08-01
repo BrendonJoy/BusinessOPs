@@ -6,6 +6,19 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { Expense } from '@trade-assist/db'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import FileUploadButtons from '@/components/FileUploadButtons'
+import {
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  Notice,
+  PageHeader,
+  Select,
+  checkboxClasses,
+  type Column,
+} from '@/components/ui'
 import { assignExpenseToJob, deleteExpense, uploadExpense } from './actions'
 
 type JobOption = { id: string; job_number: string | null }
@@ -50,20 +63,51 @@ export default async function ExpensesPage({
   const unassigned = withSignedUrls.filter((e) => !e.cost_entry_id)
   const assigned = withSignedUrls.filter((e) => e.cost_entry_id)
 
+  const assignedColumns: Column<(typeof assigned)[number]>[] = [
+    {
+      key: 'job',
+      header: 'Job',
+      mobile: 'title',
+      cell: (expense) =>
+        expense.job_id ? (
+          <a href={`/jobs/${expense.job_id}`} className="text-accent hover:opacity-80">
+            {jobsById.get(expense.job_id)?.job_number ?? expense.job_id}
+          </a>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      mobile: 'meta',
+      cell: (expense) => formatMoney(Number(expense.amount), currency),
+    },
+    { key: 'description', header: 'Description', cell: (expense) => expense.description },
+    {
+      key: 'receipt',
+      header: 'Receipt',
+      cell: (expense) =>
+        expense.signedUrl ? (
+          <a href={expense.signedUrl} target="_blank" rel="noreferrer" className="text-accent">
+            View
+          </a>
+        ) : (
+          '—'
+        ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-8">
-      {actionError && (
-        <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{actionError}</p>
-      )}
+      {actionError && <Notice tone="error">{actionError}</Notice>}
 
-      <div>
-        <h1 className="text-xl font-semibold">Expenses</h1>
-        <p className="text-sm text-muted">
-          Upload a receipt or invoice, then assign it to a job to add it as a cost.
-        </p>
-      </div>
+      <PageHeader
+        title="Expenses"
+        description="Upload a receipt or invoice, then assign it to a job to add it as a cost."
+      />
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Upload receipt</h2>
         <FileUploadButtons
           action={uploadExpense}
@@ -71,13 +115,13 @@ export default async function ExpensesPage({
           camera
           label="Upload receipt"
         />
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Unassigned ({unassigned.length})</h2>
 
         {unassigned.length === 0 ? (
-          <p className="text-sm text-muted">No unassigned expenses.</p>
+          <EmptyState title="No unassigned expenses." />
         ) : (
           <div className="flex flex-col gap-4">
             {unassigned.map((expense) => {
@@ -102,131 +146,78 @@ export default async function ExpensesPage({
                     </ConfirmSubmitButton>
                   </div>
 
-                  <form action={boundAssign} className="flex flex-wrap items-end gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor={`description-${expense.id}`} className="text-xs font-medium">
-                        Description
-                      </label>
-                      <input
+                  <form
+                    action={boundAssign}
+                    className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+                  >
+                    <Field
+                      label="Description"
+                      htmlFor={`description-${expense.id}`}
+                      required
+                      className="min-w-[200px] flex-1"
+                    >
+                      <Input
                         id={`description-${expense.id}`}
                         name="description"
                         type="text"
                         defaultValue={expense.description}
                         required
-                        className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
                       />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor={`amount-${expense.id}`} className="text-xs font-medium">
-                        Amount paid
-                      </label>
-                      <input
+                    </Field>
+                    <Field label="Amount paid" htmlFor={`amount-${expense.id}`}>
+                      <Input
                         id={`amount-${expense.id}`}
                         name="amount"
                         type="number"
+                        inputMode="decimal"
                         step="0.01"
                         defaultValue={expense.amount}
-                        className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                        className="sm:w-28"
                       />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium">
-                        <input type="checkbox" name="gst_applies" />
-                        {tax_label} applies ({default_tax_rate}%)
-                      </label>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor={`type-${expense.id}`} className="text-xs font-medium">
-                        Type
-                      </label>
-                      <select
-                        id={`type-${expense.id}`}
-                        name="type"
-                        defaultValue="material"
-                        className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                      >
+                    </Field>
+                    <label className="flex min-h-11 items-center gap-2 text-sm font-medium sm:min-h-9 sm:whitespace-nowrap">
+                      <input type="checkbox" name="gst_applies" className={checkboxClasses()} />
+                      {tax_label} applies ({default_tax_rate}%)
+                    </label>
+                    <Field label="Type" htmlFor={`type-${expense.id}`}>
+                      <Select id={`type-${expense.id}`} name="type" defaultValue="material">
                         <option value="material">Material</option>
                         <option value="labour">Labour</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor={`job-${expense.id}`} className="text-xs font-medium">
-                        Job
-                      </label>
-                      <select
-                        id={`job-${expense.id}`}
-                        name="job_id"
-                        required
-                        className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                      >
+                      </Select>
+                    </Field>
+                    <Field label="Job" htmlFor={`job-${expense.id}`} required>
+                      <Select id={`job-${expense.id}`} name="job_id" required>
                         <option value="">Select a job…</option>
                         {jobs.map((job) => (
                           <option key={job.id} value={job.id}>
                             {job.job_number ?? job.id}
                           </option>
                         ))}
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-                    >
+                      </Select>
+                    </Field>
+                    <Button type="submit" variant="primary">
                       Assign to job
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )
             })}
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-4 text-sm font-medium">Assigned ({assigned.length})</h2>
 
-        {assigned.length === 0 ? (
-          <p className="text-sm text-muted">No assigned expenses yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-muted">
-              <tr>
-                <th className="py-1 font-medium">Job</th>
-                <th className="py-1 font-medium">Description</th>
-                <th className="py-1 font-medium">Amount</th>
-                <th className="py-1 font-medium">Receipt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assigned.map((expense) => (
-                <tr key={expense.id} className="border-t border-surface-border">
-                  <td className="py-1">
-                    {expense.job_id ? (
-                      <a href={`/jobs/${expense.job_id}`} className="text-accent hover:opacity-80">
-                        {jobsById.get(expense.job_id)?.job_number ?? expense.job_id}
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="py-1">{expense.description}</td>
-                  <td className="py-1">{formatMoney(Number(expense.amount), currency)}</td>
-                  <td className="py-1">
-                    {expense.signedUrl ? (
-                      <a href={expense.signedUrl} target="_blank" rel="noreferrer" className="text-accent">
-                        View
-                      </a>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </section>
+        {/* No row href here: each card carries two distinct destinations (the
+            job and the receipt), which an overlay link would swallow. */}
+        <DataTable
+          columns={assignedColumns}
+          rows={assigned}
+          getRowKey={(expense) => expense.id}
+          empty={<EmptyState title="No assigned expenses yet." />}
+        />
+      </Card>
     </div>
   )
 }

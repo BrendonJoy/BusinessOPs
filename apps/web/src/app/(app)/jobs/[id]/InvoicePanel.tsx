@@ -5,6 +5,7 @@ import { INVOICE_TYPE_LABELS } from '@trade-assist/db'
 import type { AccessLevel, CostEntry, Invoice, InvoiceLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
+import { formatTimestampDate } from '@/lib/dates'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import {
   addInvoiceLineItemsBulk,
@@ -142,7 +143,7 @@ export default function InvoicePanel({
                 {inv.superseded_at && (
                   <span className="text-muted">
                     {' '}
-                    — superseded {new Date(inv.superseded_at).toLocaleDateString()}
+                    — superseded {formatTimestampDate(inv.superseded_at)}
                   </span>
                 )}
               </li>

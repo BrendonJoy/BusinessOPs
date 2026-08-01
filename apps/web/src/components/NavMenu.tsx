@@ -44,7 +44,9 @@ export default function NavMenu({
 
   return (
     <>
-      <nav className="hidden items-center gap-4 text-sm sm:flex">
+      {/* Breaks at lg, not sm: with every module enabled this is eight links
+          plus Sign out, which overflows the header on tablet widths. */}
+      <nav className="hidden items-center gap-4 text-sm lg:flex">
         {allLinks.map((link) => (
           <Link
             key={link.href}
@@ -67,7 +69,7 @@ export default function NavMenu({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="Toggle menu"
-        className="flex h-9 w-9 items-center justify-center rounded-md border border-surface-border sm:hidden"
+        className="flex h-11 w-11 items-center justify-center rounded-md border border-surface-border lg:hidden"
       >
         <span className="flex flex-col gap-1">
           <span className="block h-0.5 w-5 bg-foreground" />
@@ -77,14 +79,16 @@ export default function NavMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute inset-x-0 top-full z-20 border-b border-surface-border bg-background sm:hidden">
+        // z-50 to clear the chat widget's fixed z-40 button — on a short phone
+        // the open menu runs far enough down the screen to reach it.
+        <div className="absolute inset-x-0 top-full z-50 border-b border-surface-border bg-background lg:hidden">
           <nav className="flex flex-col gap-1 px-4 py-3 text-sm">
             {allLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsOpen(false)}
-                className={`rounded-md px-2 py-2 font-medium hover:bg-surface ${
+                className={`rounded-md px-2 py-3 font-medium hover:bg-surface ${
                   link.href === '/admin/feedback' ? 'text-accent' : ''
                 } ${pathname === link.href ? 'bg-surface' : ''}`}
               >
@@ -94,7 +98,7 @@ export default function NavMenu({
             <form action={signOut}>
               <button
                 type="submit"
-                className="w-full rounded-md px-2 py-2 text-left text-muted hover:bg-surface"
+                className="w-full rounded-md px-2 py-3 text-left text-muted hover:bg-surface"
               >
                 Sign out
               </button>
