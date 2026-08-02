@@ -1,6 +1,7 @@
 # Runbook: moving Supabase from Mumbai to London
 
-**Status:** not yet executed. Written 2026-08-02.
+**Status:** Phases 1–7 complete 2026-08-02. Production is live on London.
+**Phase 8 (deleting the old project) is still OUTSTANDING** — see the bottom of this file. Until it is done, the personal data still resides outside the UK and the transfer problem is not remediated.
 
 ## Why
 
@@ -141,13 +142,35 @@ Do not skip. Against the deployed app, not localhost:
 - [ ] Staff account sees only its own timesheets (RLS intact)
 - [ ] Send one real quote email end to end
 
-## Phase 8 — Decommission
+## Phases 6–7: cutover, executed 2026-08-02
 
-Only after Phase 7 passes completely, and after a few days of real use:
+Env vars were changed in Vercel **before** the code was pushed. This matters: migration 0030 altered `clock_out_timesheet_entry`'s signature, so new code only works against London and old code only works against Mumbai. Vercel applies env changes to new builds only, so pushing afterwards put new code and new env into the same deployment and switched atomically. A manual redeploy in between would have produced new env against old code and broken clock-out.
 
-**Delete the old Mumbai project.** This is not tidying up — it is the actual remedy. Until it is deleted, the personal data still resides in India and the transfer problem is unresolved.
+Verified against the live site:
 
-Record the deletion date; it is the evidence that the issue was remediated.
+- Client bundle for `/reset-password` contains `jqmngabpgdhpohlefeyt` and **zero** references to the old project. This is the authoritative check — `NEXT_PUBLIC_SUPABASE_URL` is inlined into client bundles at build time.
+- `x-vercel-id: syd1::lhr1::…` — request enters at the nearest edge and executes in London, confirming the `lhr1` pin.
+- Public quote link and calendar feed both 200; site 200; forgot-password serving the code flow.
+
+**A verification trap worth remembering:** the public quote link and calendar feed initially looked like proof of cutover. They are not. Those tokens were *copied*, so they resolve identically against either project. Only artefacts that differ between the two databases — or the build-time-inlined project ref — can tell you which one is live.
+
+Also note `/login` ships no Supabase reference at all: it is server-rendered with a server action, so the browser client never loads there. Scan a client-component page instead.
+
+## Phase 8 — Decommission (OUTSTANDING)
+
+Deliberately deferred on 2026-08-02. The old project costs nothing to keep and is the only rollback if something surfaces that the checks missed. Give it a few days of real use first.
+
+**Then delete the old project.** This is not tidying up — it is the actual remedy. Until it is deleted, the personal data still resides outside the UK and the transfer problem is unresolved.
+
+Checklist when the time comes:
+
+- [ ] Delete the old Supabase project
+- [ ] **Record the deletion date** — it is the evidence the issue was remediated, and the thing a regulator or a customer's due-diligence questionnaire would ask for
+- [ ] Rotate the London database password (it was shared in a chat transcript during the migration)
+- [ ] Delete `apps/web/.env.migration.local` and `C:\JOYTECH\open-me-to-set-password.html`
+- [ ] Confirm custom SMTP and the `{{ .Token }}` reset template are still set on London
+
+Rollback disappears at the first step.
 
 ## Rollback
 
