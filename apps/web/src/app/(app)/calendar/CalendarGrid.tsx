@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { JOB_STATUS_LABELS } from '@trade-assist/db'
 import type { JobWithCustomer } from '@/lib/jobs'
 import { rescheduleJob } from './actions'
+import { formatDayLabel } from '@/lib/dates'
+import { EmptyState } from '@/components/ui'
+import { STATUS_CHIP, STATUS_DOT, timeLabel } from './status-style'
 import DayView from './DayView'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -108,6 +111,18 @@ export default function CalendarGrid({
 
   const weeks = chunkWeeks(gridDays)
 
+  // Days in the displayed month that actually have work, for the phone agenda.
+  // Sorted by time within each day so the list reads like a run sheet.
+  const agendaDays = gridDays
+    .filter((day) => day.slice(0, 7) === monthParam)
+    .map((day) => ({
+      day,
+      jobs: jobsOnDay(day).sort((a, b) =>
+        (a.start_time ?? '99:99').localeCompare(b.start_time ?? '99:99')
+      ),
+    }))
+    .filter(({ jobs }) => jobs.length > 0)
+
   return (
     <>
       {selectedDay && (
@@ -118,7 +133,65 @@ export default function CalendarGrid({
           onClose={() => setSelectedDay(null)}
         />
       )}
-    <div className="overflow-hidden rounded-lg border border-surface-border bg-surface-border">
+    {/* Agenda — phones only.
+        A seven-column month grid at 375px gives each day ~50px, which truncated
+        every chip to "JO…" and told the user nothing. This lists only the days
+        that actually have work, so a month of scrolling past empty cells becomes
+        a short, readable list. */}
+    <div className="flex flex-col gap-3 sm:hidden">
+      {agendaDays.length === 0 ? (
+        <EmptyState
+          title="Nothing scheduled this month"
+          description="Jobs with a start date will appear here."
+        />
+      ) : (
+        agendaDays.map(({ day, jobs }) => (
+          <div key={day} className="rounded-lg border border-surface-border">
+            <button
+              type="button"
+              onClick={() => setSelectedDay(day)}
+              className={`flex min-h-11 w-full items-center justify-between gap-2 border-b border-surface-border px-3 text-left text-sm font-medium ${
+                day === todayStr ? 'text-accent' : ''
+              }`}
+            >
+              <span>
+                {formatDayLabel(day)}
+                {day === todayStr && <span className="ml-2 text-xs font-normal">Today</span>}
+              </span>
+              <span className="text-xs font-normal text-muted">
+                {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
+              </span>
+            </button>
+            <ul className="flex flex-col divide-y divide-surface-border">
+              {jobs.map((job) => (
+                <li key={job.id}>
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm active:bg-surface"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[job.status]}`}
+                    />
+                    {timeLabel(job.start_time) && (
+                      <span className="shrink-0 tabular-nums text-muted">
+                        {timeLabel(job.start_time)}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {job.customer?.name ?? 'No customer'}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">{job.job_number}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </div>
+
+    <div className="hidden overflow-hidden rounded-lg border border-surface-border bg-surface-border sm:block">
       <div className="grid grid-cols-7 gap-px text-sm">
         {WEEKDAY_LABELS.map((label) => (
           <div key={label} className="bg-surface px-2 py-1.5 text-center text-xs font-medium text-muted">
@@ -156,20 +229,35 @@ export default function CalendarGrid({
               const isHovered = hoveredDay === day
 
               return (
+                // A day cell is clickable (it opens the day view) but nothing
+                // said so — no hover, no outline, no pointer feedback. The only
+                // visual response was during a drag. Cells now carry a faint
+                // inset ring at rest so each day reads as its own target, and a
+                // stronger ring plus a background lift on hover and focus.
                 <div
                   key={day}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View jobs on ${day}`}
                   onDragOver={(e) => handleDragOver(e, day)}
                   onDragLeave={() => setHoveredDay((prev) => (prev === day ? null : prev))}
                   onDrop={(e) => handleDrop(e, day)}
                   onClick={(e) => handleDayClick(e, day)}
-                  className={`min-h-[6rem] cursor-pointer bg-background p-1.5 ${inMonth ? '' : 'opacity-40'} ${
-                    isHovered ? 'bg-accent/10' : ''
-                  }`}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedDay(day)
+                    }
+                  }}
+                  className={`relative min-h-[6rem] cursor-pointer bg-background p-1.5 ring-1 ring-inset ring-surface-border/50 transition-colors hover:bg-surface/40 hover:ring-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                    inMonth ? '' : 'opacity-40'
+                  } ${isHovered ? 'bg-accent/10 ring-accent' : ''}`}
                   style={{ paddingTop: `${0.375 + barsAreaHeight}rem` }}
                 >
                   <div
-                    className={`mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
-                      isToday ? 'bg-accent text-accent-foreground' : 'text-muted'
+                    className={`mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${
+                      isToday ? 'bg-accent font-semibold text-accent-foreground' : 'text-muted'
                     }`}
                   >
                     {dayNumber}
@@ -181,10 +269,17 @@ export default function CalendarGrid({
                         href={`/jobs/${job.id}`}
                         draggable={canSchedule}
                         onDragStart={(e) => handleDragStart(e, job)}
-                        className={`block truncate rounded bg-surface px-1.5 py-0.5 text-xs hover:bg-accent/10 ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        className={`block truncate rounded px-1.5 py-0.5 text-xs transition-opacity hover:opacity-80 ${STATUS_CHIP[job.status]} ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
                         title={`${job.job_number ?? ''} — ${job.customer?.name ?? ''} (${JOB_STATUS_LABELS[job.status]})`}
                       >
-                        {job.job_number} {job.customer?.name ?? ''}
+                        {/* Time first: when scheduling, "8:00" is the thing
+                            being scanned for, not the job number. */}
+                        {timeLabel(job.start_time) && (
+                          <span className="mr-1 font-medium tabular-nums">
+                            {timeLabel(job.start_time)}
+                          </span>
+                        )}
+                        {job.customer?.name ?? job.job_number}
                       </Link>
                     ))}
                   </div>
@@ -200,14 +295,22 @@ export default function CalendarGrid({
                     href={`/jobs/${bar.job.id}`}
                     draggable={canSchedule}
                     onDragStart={(e) => handleDragStart(e, bar.job)}
-                    className={`pointer-events-auto mx-1.5 block truncate rounded bg-accent/20 px-1.5 py-0.5 text-xs font-medium text-accent hover:bg-accent/30 ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                    // self-start is load-bearing: a grid item stretches to fill
+                    // its row by default, so the "bar" was silently filling the
+                    // entire week's height and washing out the days underneath.
+                    className={`pointer-events-auto mx-1.5 block h-[1.375rem] self-start truncate rounded px-1.5 py-0.5 text-xs leading-4 transition-opacity hover:opacity-80 ${STATUS_CHIP[bar.job.status]} ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     style={{
                       gridColumn: `${bar.startCol + 1} / span ${bar.span}`,
                       marginTop: `${0.375 + bar.lane * BAR_HEIGHT_REM}rem`,
                     }}
                     title={`${bar.job.job_number ?? ''} — ${bar.job.customer?.name ?? ''} (${JOB_STATUS_LABELS[bar.job.status]})`}
                   >
-                    {bar.job.job_number} {bar.job.customer?.name ?? ''}
+                    {timeLabel(bar.job.start_time) && (
+                      <span className="mr-1 font-medium tabular-nums">
+                        {timeLabel(bar.job.start_time)}
+                      </span>
+                    )}
+                    {bar.job.customer?.name ?? bar.job.job_number}
                   </Link>
                 ))}
               </div>

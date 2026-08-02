@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { JOB_STATUS_LABELS } from '@trade-assist/db'
+import { STATUS_CHIP } from './status-style'
 import type { JobWithCustomer } from '@/lib/jobs'
 import { rescheduleJobTime } from './actions'
 
@@ -213,7 +214,7 @@ export default function DayView({
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
                   onClick={() => !canSchedule && router.push(`/jobs/${job.id}`)}
-                  className={`touch-none rounded bg-surface px-2 py-1 text-xs hover:bg-accent/10 ${
+                  className={`touch-none rounded px-2 py-1 text-xs transition-opacity hover:opacity-80 ${STATUS_CHIP[job.status]} ${
                     canSchedule ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                   }`}
                   title={`${job.job_number ?? ''} — ${job.customer?.name ?? ''} (${JOB_STATUS_LABELS[job.status]})`}
@@ -259,7 +260,9 @@ export default function DayView({
                     key={block.job.id}
                     onPointerDown={(e) => beginDrag(e, block.job.id, block.durationMin, false)}
                     onClick={() => !canSchedule && router.push(`/jobs/${block.job.id}`)}
-                    className={`absolute touch-none overflow-hidden rounded border border-accent/40 bg-accent/15 px-1.5 py-0.5 text-xs hover:bg-accent/25 ${
+                    // Same status colours as the month grid — a job shouldn't
+                    // change appearance just because you zoomed into its day.
+                    className={`absolute touch-none overflow-hidden rounded px-1.5 py-0.5 text-xs transition-opacity hover:opacity-80 ${STATUS_CHIP[block.job.status]} ${
                       canSchedule ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                     } ${isDragging ? 'z-10 opacity-80 ring-2 ring-accent' : ''}`}
                     style={{
