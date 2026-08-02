@@ -66,7 +66,10 @@ type JobDetail = Job & {
     modules_expenses_enabled: boolean
   }
   job_audit_log: AuditEntry[]
-  job_assignments: { profile_id: string; profile: { full_name: string | null; email: string } | null }[]
+  job_assignments: {
+    profile_id: string
+    profile: { full_name: string | null; email: string; job_title: string | null } | null
+  }[]
 }
 
 export default async function JobDetailPage({
@@ -83,7 +86,7 @@ export default async function JobDetailPage({
   const { data } = await supabase
     .from('jobs')
     .select(
-      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered, modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled), job_audit_log(id, action, created_at, profile:profiles(full_name)), job_assignments(profile_id, profile:profiles(full_name, email))'
+      '*, customer:customers(*), cost_entries(*), job_files(*), company:companies(currency, tax_label, gst_registered, modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled), job_audit_log(id, action, created_at, profile:profiles(full_name)), job_assignments(profile_id, profile:profiles(full_name, email, job_title))'
     )
     .eq('id', id)
     .maybeSingle()
@@ -487,6 +490,9 @@ export default async function JobDetailPage({
                     className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm"
                   >
                     {a.profile?.full_name ?? a.profile?.email ?? 'Team member'}
+                    {a.profile?.job_title && (
+                      <span className="ml-1.5 text-muted">{a.profile.job_title}</span>
+                    )}
                   </span>
                 ))
               )}

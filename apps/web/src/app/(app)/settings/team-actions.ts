@@ -37,6 +37,15 @@ function parsePayRate(formData: FormData): number | null {
   return Number.isFinite(value) ? value : null
 }
 
+/**
+ * Employment details, kept separate from extractPermissions because they are a
+ * different kind of thing: a job title has no effect on what anyone can access.
+ */
+function extractEmployment(formData: FormData) {
+  const jobTitle = String(formData.get('job_title') ?? '').trim()
+  return { job_title: jobTitle || null }
+}
+
 export async function inviteTeamMember(formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
@@ -49,7 +58,12 @@ export async function inviteTeamMember(formData: FormData) {
 
   const { data: invite, error } = await supabase
     .from('company_invites')
-    .insert({ company_id: profile.company_id, email, invited_by: profile.id })
+    .insert({
+      company_id: profile.company_id,
+      email,
+      invited_by: profile.id,
+      ...extractEmployment(formData),
+    })
     .select('token')
     .single()
 
@@ -87,7 +101,10 @@ export async function updateMemberPermissions(profileId: string, formData: FormD
   const profile = await getCurrentProfile(supabase)
   if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can change permissions.')
 
-  const { error } = await supabase.from('profiles').update(extractPermissions(formData)).eq('id', profileId)
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ...extractPermissions(formData), ...extractEmployment(formData) })
+    .eq('id', profileId)
   if (error) errorRedirect(error.message)
 
   const payRate = parsePayRate(formData)
@@ -107,7 +124,11 @@ export async function updateInvitePermissions(inviteId: string, formData: FormDa
 
   const { error } = await supabase
     .from('company_invites')
-    .update({ ...extractPermissions(formData), pay_rate: parsePayRate(formData) })
+    .update({
+      ...extractPermissions(formData),
+      ...extractEmployment(formData),
+      pay_rate: parsePayRate(formData),
+    })
     .eq('id', inviteId)
   if (error) errorRedirect(error.message)
 

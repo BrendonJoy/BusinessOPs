@@ -23,7 +23,17 @@ import {
 } from './team-actions'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import FileUploadButtons from '@/components/FileUploadButtons'
-import { buttonClasses, cardClasses, checkboxClasses, inputClasses } from '@/components/ui'
+import {
+  Button,
+  EmptyState,
+  Field,
+  Input,
+  Select,
+  buttonClasses,
+  cardClasses,
+  checkboxClasses,
+  inputClasses,
+} from '@/components/ui'
 
 type ProfileWithCompany = Profile & { company: Company | null }
 
@@ -515,8 +525,17 @@ export default async function SettingsPage({
         {companyMember && (
           <div className="mb-4 rounded-md border border-surface-border bg-surface p-3 text-sm">
             <span className="font-medium">{companyMember.full_name ?? companyMember.email}</span>{' '}
-            <span className="text-muted">— Company account (full access to everything)</span>
+            {/* "Access level", not "role" — role reads as job role, which is
+                exactly the confusion job_title now resolves. */}
+            <span className="text-muted">— Access level: Company (full access to everything)</span>
           </div>
+        )}
+
+        {staffMembers.length === 0 && pendingInvites.length === 0 && (
+          <EmptyState
+            title="No team members yet"
+            description="Invite someone below. Once they accept, you'll be able to set their job title, hourly pay rate and exactly what they can see and do — all from here."
+          />
         )}
 
         {staffMembers.length > 0 && (
@@ -525,8 +544,13 @@ export default async function SettingsPage({
               <div key={member.id} className="rounded-md border border-surface-border p-3">
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium">{member.full_name ?? member.email}</p>
-                    <p className="text-xs text-muted">{member.email}</p>
+                    <p className="text-sm font-medium">
+                      {member.full_name ?? member.email}
+                      {member.job_title && (
+                        <span className="ml-2 font-normal text-muted">{member.job_title}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted">{member.email} — Access level: Staff</p>
                   </div>
                   <ConfirmSubmitButton
                     action={removeMember.bind(null, member.id)}
@@ -536,7 +560,7 @@ export default async function SettingsPage({
                     Remove
                   </ConfirmSubmitButton>
                 </div>
-                <PermissionToggles
+                <MemberEditor
                   member={{ ...member, pay_rate: payRatesByProfileId.get(member.id) ?? null }}
                   action={updateMemberPermissions.bind(null, member.id)}
                 />
@@ -558,31 +582,33 @@ export default async function SettingsPage({
                     </button>
                   </form>
                 </div>
-                <PermissionToggles member={invite} action={updateInvitePermissions.bind(null, invite.id)} />
+                <MemberEditor member={invite} action={updateInvitePermissions.bind(null, invite.id)} />
               </div>
             ))}
           </div>
         )}
 
-        <form action={inviteTeamMember} className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="invite_email" className="text-xs font-medium">
-              Email
-            </label>
-            <input
-              id="invite_email"
-              name="email"
-              type="email"
-              required
-              className={inputClasses()}
+        <form
+          action={inviteTeamMember}
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+        >
+          <Field label="Email" htmlFor="invite_email" required className="min-w-[200px] flex-1">
+            <Input id="invite_email" name="email" type="email" required />
+          </Field>
+          {/* No hint here: it would make this field taller than the email one,
+              and sm:items-end then knocks the two labels out of line. The
+              placeholder already conveys that it's optional. */}
+          <Field label="Job title" htmlFor="invite_job_title">
+            <Input
+              id="invite_job_title"
+              name="job_title"
+              type="text"
+              placeholder="Electrician, Apprentice…"
             />
-          </div>
-          <button
-            type="submit"
-            className={buttonClasses()}
-          >
+          </Field>
+          <Button type="submit" className="w-full sm:w-auto">
             Invite teammate
-          </button>
+          </Button>
         </form>
       </section>
       )}
@@ -628,15 +654,53 @@ export default async function SettingsPage({
   )
 }
 
-function PermissionToggles({
+/**
+ * Employment details and access control are deliberately separated.
+ *
+ * Pay rate used to sit at the end of the permissions row, styled like a
+ * permission, which made it effectively invisible — a company owner looking for
+ * "where do I set someone's pay?" did not find it. Job title has the same
+ * problem waiting for it. They are employment facts; nothing below the divider
+ * affects what anyone can see or do.
+ */
+function MemberEditor({
   member,
   action,
 }: {
-  member: StaffPermissions & { pay_rate: number | null }
+  // `id` is needed to scope the field ids — otherwise every member's inputs
+  // share the same id and labels point at the wrong control.
+  member: StaffPermissions & { id: string; pay_rate: number | null; job_title: string | null }
   action: (formData: FormData) => void
 }) {
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form action={action} className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-4">
+        <Field label="Job title" htmlFor={`job_title-${member.id}`} className="min-w-[160px] flex-1">
+          <Input
+            id={`job_title-${member.id}`}
+            name="job_title"
+            type="text"
+            placeholder="Electrician, Apprentice…"
+            defaultValue={member.job_title ?? ''}
+          />
+        </Field>
+        <Field label="Hourly pay rate" htmlFor={`pay_rate-${member.id}`}>
+          <Input
+            id={`pay_rate-${member.id}`}
+            name="pay_rate"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            placeholder="Not set"
+            defaultValue={member.pay_rate ?? ''}
+            className="sm:w-32"
+          />
+        </Field>
+      </div>
+
+      <div className="border-t border-surface-border pt-3">
+        <p className="mb-2 text-xs font-semibold text-muted">Access</p>
       <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
         <label className="flex items-center gap-1.5">
           <input
@@ -684,50 +748,27 @@ function PermissionToggles({
           Scheduling
         </label>
       </div>
-      <div className="flex flex-wrap gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">Quotes</label>
-          <select
-            name="quotes_access"
-            defaultValue={member.quotes_access}
-            className={inputClasses('sm', '')}
-          >
+      <div className="mt-3 flex flex-wrap gap-4">
+        <Field label="Quotes" htmlFor={`quotes-${member.id}`}>
+          <Select id={`quotes-${member.id}`} name="quotes_access" defaultValue={member.quotes_access}>
             <option value="hidden">Hidden</option>
             <option value="view">View</option>
             <option value="full">Full access</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">Invoicing</label>
-          <select
-            name="invoices_access"
-            defaultValue={member.invoices_access}
-            className={inputClasses('sm', '')}
-          >
+          </Select>
+        </Field>
+        <Field label="Invoicing" htmlFor={`invoices-${member.id}`}>
+          <Select id={`invoices-${member.id}`} name="invoices_access" defaultValue={member.invoices_access}>
             <option value="hidden">Hidden</option>
             <option value="view">View</option>
             <option value="full">Full access</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">Hourly pay rate</label>
-          <input
-            type="number"
-            name="pay_rate"
-            step="0.01"
-            min="0"
-            placeholder="Not set"
-            defaultValue={member.pay_rate ?? ''}
-            className={inputClasses('sm', 'w-24')}
-          />
-        </div>
+          </Select>
+        </Field>
       </div>
-      <button
-        type="submit"
-        className={buttonClasses('secondary', 'sm', 'self-start')}
-      >
-        Save permissions
-      </button>
+      </div>
+
+      <Button type="submit" size="sm" className="self-start">
+        Save changes
+      </Button>
     </form>
   )
 }

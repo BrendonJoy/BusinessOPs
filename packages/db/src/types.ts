@@ -70,7 +70,10 @@ export interface Profile extends StaffPermissions {
   id: string
   company_id: string
   full_name: string | null
+  /** Access level, not an occupation — drives permissions and RLS. */
   role: 'company' | 'staff'
+  /** Occupation, e.g. "Electrician". Descriptive only; no effect on access. */
+  job_title: string | null
   email: string
   created_at: string
 }
@@ -82,6 +85,7 @@ export interface CompanyInvite extends StaffPermissions {
   role: 'staff'
   token: string
   invited_by: string | null
+  job_title: string | null
   pay_rate: number | null
   created_at: string
   expires_at: string

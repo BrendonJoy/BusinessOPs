@@ -22,7 +22,7 @@ type EntryRow = {
   misc_category: TimesheetMiscCategory | null
   clock_in: string
   clock_out: string | null
-  profile: { full_name: string | null; email: string } | null
+  profile: { full_name: string | null; email: string; job_title: string | null } | null
   job: {
     job_number: string | null
     start_date: string | null
@@ -54,7 +54,7 @@ export default async function StaffTimesheetReportPage({
   const { data } = await supabase
     .from('timesheet_entries')
     .select(
-      'id, profile_id, job_id, misc_category, clock_in, clock_out, profile:profiles(full_name, email), job:jobs(job_number, start_date, start_time, finish_date, finish_time)'
+      'id, profile_id, job_id, misc_category, clock_in, clock_out, profile:profiles(full_name, email, job_title), job:jobs(job_number, start_date, start_time, finish_date, finish_time)'
     )
     .gte('clock_in', `${from}T00:00:00`)
     .lte('clock_in', `${to}T23:59:59`)
@@ -87,6 +87,7 @@ export default async function StaffTimesheetReportPage({
     string,
     {
       name: string
+      jobTitle: string | null
       totalHours: number
       lateCount: number
       lateMinutes: number
@@ -99,6 +100,7 @@ export default async function StaffTimesheetReportPage({
     const key = entry.profile_id
     const existing = byStaff.get(key) ?? {
       name: entry.profile?.full_name ?? entry.profile?.email ?? 'Unknown',
+      jobTitle: entry.profile?.job_title ?? null,
       totalHours: 0,
       lateCount: 0,
       lateMinutes: 0,
@@ -125,7 +127,12 @@ export default async function StaffTimesheetReportPage({
       header: 'Staff',
       mobile: 'title',
       className: 'font-medium',
-      cell: (row) => row.name,
+      cell: (row) => (
+        <>
+          {row.name}
+          {row.jobTitle && <span className="ml-2 font-normal text-muted">{row.jobTitle}</span>}
+        </>
+      ),
     },
     {
       key: 'hours',
