@@ -2,7 +2,6 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getBaseUrl } from '@/lib/url'
 
 export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim()
@@ -12,15 +11,15 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   const supabase = await createClient()
-  const baseUrl = await getBaseUrl()
 
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${baseUrl}/reset-password`,
-  })
+  // No redirectTo: the email carries a 6-digit code ({{ .Token }} in the
+  // Supabase "Reset Password" template), not a link. Links get consumed by
+  // corporate mail scanners — Microsoft Safe Links fetches every URL in an
+  // inbound message, spending the single-use token before the user clicks.
+  await supabase.auth.resetPasswordForEmail(email)
 
-  // Always show the same message whether or not the email has an account,
-  // so this form can't be used to check who's signed up.
-  redirect(
-    `/forgot-password?message=${encodeURIComponent('If an account exists for that email, a reset link has been sent.')}`
-  )
+  // Same response whether or not the address has an account, so this form
+  // can't be used to enumerate who has signed up. The email is carried through
+  // only so the next page can prefill it.
+  redirect(`/reset-password?email=${encodeURIComponent(email)}`)
 }

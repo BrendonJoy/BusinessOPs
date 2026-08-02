@@ -13,7 +13,7 @@ export default async function ForgotPasswordPage({
     <div>
       <h1 className="mb-1 text-xl font-semibold">Reset your password</h1>
       <p className="mb-6 text-sm text-muted">
-        Enter your email and we&apos;ll send you a link to reset your password.
+        Enter your email and we&apos;ll send you a code to reset your password.
       </p>
 
       {message && <Notice className="mb-4">{message}</Notice>}
