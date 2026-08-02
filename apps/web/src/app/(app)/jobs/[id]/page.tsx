@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
@@ -284,6 +285,16 @@ export default async function JobDetailPage({
       {actionError && <Notice tone="error">{actionError}</Notice>}
 
       <div>
+        {/* A plain link to /jobs rather than router.back(): this page is reached
+            from the list, the panel's "Open full job", a quote email, the
+            calendar and the dashboard, so "back" is ambiguous but "the job
+            list" is not — which is what was asked for. */}
+        <Link
+          href="/jobs"
+          className="mb-2 inline-flex min-h-11 items-center text-sm text-accent hover:opacity-80 sm:min-h-0"
+        >
+          ← Back to jobs
+        </Link>
         <p className="text-sm text-muted">Job</p>
         <h1 className="text-2xl font-semibold tracking-tight">{job.job_number ?? '—'}</h1>
         <p className="text-sm text-muted">{job.customer?.name ?? 'No customer'}</p>
