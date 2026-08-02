@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
 import { formatDate } from '@/lib/dates'
 import { JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
-import { Badge, ButtonLink, SidePanel, Stat } from '@/components/ui'
+import { Badge, SidePanel, Stat, buttonClasses } from '@/components/ui'
 
 /**
  * Intercepted route: clicking a job from the list opens it as a slide-over,
@@ -65,9 +65,19 @@ export default async function JobPanel({ params }: { params: Promise<{ id: strin
       title={job.job_number ?? 'Job'}
       subtitle={job.customer?.name ?? 'No customer'}
       footer={
-        <ButtonLink href={`/jobs/${job.id}`} variant="primary" className="w-full">
+        // A plain anchor, NOT next/link, and this matters.
+        //
+        // While the panel is open the URL is already /jobs/[id] — the panel is
+        // that route, intercepted. A client-side navigation to the same URL is
+        // a no-op, so the button did nothing at all. A full page load bypasses
+        // interception (it only applies to soft navigation), which is precisely
+        // how we get the real page.
+        <a
+          href={`/jobs/${job.id}`}
+          className={buttonClasses('primary', 'md', 'w-full')}
+        >
           Open full job
-        </ButtonLink>
+        </a>
       }
     >
       <div className="flex flex-col gap-5">
