@@ -2,7 +2,21 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const AUTH_PATHS = ['/login', '/signup', '/forgot-password']
-const PUBLIC_PATHS = ['/q', '/api/calendar', '/api/cron', '/reset-password', '/accept-invite']
+const PUBLIC_PATHS = [
+  '/q',
+  '/api/calendar',
+  '/api/cron',
+  '/reset-password',
+  '/accept-invite',
+  // PWA install assets. The browser fetches these WITHOUT the user's session —
+  // often before sign-in and sometimes from a service worker context — so
+  // redirecting them to /login silently makes the app non-installable: the
+  // manifest parses as HTML and the icons resolve to a login page.
+  '/manifest.webmanifest',
+  '/icons/',
+  '/icon.png',
+  '/apple-icon.png',
+]
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
