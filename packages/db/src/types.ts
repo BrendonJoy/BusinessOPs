@@ -113,10 +113,8 @@ export interface TimesheetEntry {
   misc_category: TimesheetMiscCategory | null
   clock_in: string
   clock_out: string | null
-  clock_in_lat: number | null
-  clock_in_lng: number | null
-  clock_out_lat: number | null
-  clock_out_lng: number | null
+  // No location columns by design — coordinates are used once for the geofence
+  // check and never stored. See migration 0030.
   cost_entry_id: string | null
   day_id: string | null
   created_at: string

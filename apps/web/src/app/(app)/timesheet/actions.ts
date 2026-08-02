@@ -117,14 +117,14 @@ export async function clockIn(formData: FormData) {
     await checkGeofence(supabase, settings, jobId, lat, lng)
   }
 
+  // Coordinates are deliberately not persisted — checkGeofence above is the
+  // only thing that uses them, and it has already run. See migration 0030.
   const { error } = await supabase.from('timesheet_entries').insert({
     company_id: profile.company_id,
     profile_id: profile.id,
     job_id: jobId,
     misc_category: miscCategoryRaw as TimesheetMiscCategory | null,
     clock_in: clockInDate.toISOString(),
-    clock_in_lat: lat,
-    clock_in_lng: lng,
   })
 
   if (error) {
@@ -178,8 +178,6 @@ export async function clockOut(entryId: string, formData: FormData) {
   const { error } = await supabase.rpc('clock_out_timesheet_entry', {
     p_entry_id: entryId,
     p_clock_out: clockOutDate.toISOString(),
-    p_lat: lat,
-    p_lng: lng,
   })
 
   if (error) errorRedirect(error.message)
