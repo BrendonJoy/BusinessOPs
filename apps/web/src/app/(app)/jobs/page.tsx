@@ -5,11 +5,11 @@ import type { JobWithCustomer } from '@/lib/jobs'
 import { formatDate } from '@/lib/dates'
 import {
   Badge,
-  ButtonLink,
   DataTable,
   EmptyState,
   Notice,
   PageHeader,
+  buttonClasses,
   type Column,
 } from '@/components/ui'
 import JobsToolbar from './JobsToolbar'
@@ -156,9 +156,14 @@ export default async function JobsPage({
       <PageHeader
         title="Jobs"
         actions={
-          <ButtonLink href="/jobs/new" variant="primary">
+          // Plain anchor, not next/link. The @panel slot intercepts /jobs/[id],
+          // and "new" matches that dynamic segment — a soft navigation would be
+          // captured by the panel instead of reaching the form. A full page load
+          // bypasses interception entirely.
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- deliberate: must not be a client-side navigation
+          <a href="/jobs/new" className={buttonClasses('primary')}>
             New job
-          </ButtonLink>
+          </a>
         }
       />
 
@@ -205,9 +210,11 @@ export default async function JobsPage({
             }
             action={
               status || q ? undefined : (
-                <ButtonLink href="/jobs/new" variant="primary">
+                // Plain anchor for the same reason as the header button above.
+                // eslint-disable-next-line @next/next/no-html-link-for-pages -- deliberate: must not be a client-side navigation
+                <a href="/jobs/new" className={buttonClasses('primary')}>
                   New job
-                </ButtonLink>
+                </a>
               )
             }
           />
