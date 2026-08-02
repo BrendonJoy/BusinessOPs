@@ -5,6 +5,7 @@ export { Field, Input, Select, Textarea } from './Input'
 export { Badge } from './Badge'
 export { EmptyState, Notice } from './Notice'
 export { PageHeader } from './PageHeader'
+export { SidePanel } from './SidePanel'
 export {
   buttonClasses,
   cardClasses,

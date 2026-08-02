@@ -6,7 +6,16 @@ import { getCompanyModules } from '@/lib/company'
 import NavMenu from '@/components/NavMenu'
 import ChatWidget from '@/components/ChatWidget'
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+  panel,
+}: {
+  children: React.ReactNode
+  // Parallel route slot. Renders the intercepted job panel over the current
+  // page during client-side navigation; renders nothing (see @panel/default)
+  // on a direct load or refresh, so the full page shows instead.
+  panel: React.ReactNode
+}) {
   const supabase = await createClient()
   const isAdmin = await isPlatformAdmin(supabase)
   const profile = await getCurrentProfile(supabase)
@@ -31,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      {panel}
       <ChatWidget />
     </div>
   );
