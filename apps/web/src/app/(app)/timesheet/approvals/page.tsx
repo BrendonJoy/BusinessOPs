@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules } from '@/lib/company'
 import { TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
+import { Button, Card, EmptyState, Input, Notice } from '@/components/ui'
 import { approveDay, deleteTimesheetEntry, updateEntryTimes } from '../approval-actions'
 
 type DayRow = {
@@ -98,12 +99,12 @@ export default async function TimesheetApprovalsPage({
         </Link>
       </div>
 
-      {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-3 text-sm font-medium">Awaiting approval</h2>
         {submitted.length === 0 ? (
-          <p className="text-sm text-muted">No submitted days waiting for approval.</p>
+          <EmptyState title="No submitted days waiting for approval." />
         ) : (
           <div className="flex flex-col gap-5">
             {submitted.map((day) => (
@@ -114,12 +115,9 @@ export default async function TimesheetApprovalsPage({
                     — {formatDayLabel(day.work_date)}
                   </p>
                   <form action={approveDay.bind(null, day.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90"
-                    >
+                    <Button type="submit" variant="primary" size="sm">
                       Approve day
-                    </button>
+                    </Button>
                   </form>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -130,25 +128,24 @@ export default async function TimesheetApprovalsPage({
                         action={updateEntryTimes.bind(null, entry.id)}
                         className="flex flex-wrap items-center gap-2"
                       >
-                        <input
+                        <Input
                           name="clock_in_time"
                           type="time"
+                          aria-label="Clock in time"
                           defaultValue={toHHMM(entry.clock_in)}
-                          className="rounded-md border border-surface-border bg-background px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                          fullWidth={false}
                         />
                         <span className="text-muted">–</span>
-                        <input
+                        <Input
                           name="clock_out_time"
                           type="time"
+                          aria-label="Clock out time"
                           defaultValue={entry.clock_out ? toHHMM(entry.clock_out) : ''}
-                          className="rounded-md border border-surface-border bg-background px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                          fullWidth={false}
                         />
-                        <button
-                          type="submit"
-                          className="rounded-md border border-surface-border px-2 py-1 text-xs font-medium hover:border-accent"
-                        >
+                        <Button type="submit" size="sm">
                           Save times
-                        </button>
+                        </Button>
                       </form>
                       <form action={deleteTimesheetEntry.bind(null, entry.id)}>
                         <button type="submit" className="text-xs text-accent hover:opacity-80">
@@ -162,12 +159,12 @@ export default async function TimesheetApprovalsPage({
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-3 text-sm font-medium">Recently approved</h2>
         {approved.length === 0 ? (
-          <p className="text-sm text-muted">Nothing approved in the last 14 days.</p>
+          <EmptyState title="Nothing approved in the last 14 days." />
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {approved.map((day) => (
@@ -185,7 +182,7 @@ export default async function TimesheetApprovalsPage({
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   )
 }

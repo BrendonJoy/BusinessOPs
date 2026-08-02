@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { JobWithCustomer } from '@/lib/jobs'
 import DayView from '../calendar/DayView'
+import { cardClasses } from '@/components/ui'
 
 export default function TodayJobsCard({
   today,
@@ -18,7 +19,7 @@ export default function TodayJobsCard({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="rounded-lg border border-surface-border p-4 text-left hover:border-accent"
+        className={cardClasses('text-left transition-colors hover:border-accent')}
       >
         <p className="text-2xl font-semibold">{jobs.length}</p>
         <p className="text-xs text-muted">Jobs Today</p>

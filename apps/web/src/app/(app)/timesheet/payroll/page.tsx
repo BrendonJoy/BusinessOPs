@@ -7,6 +7,14 @@ import { getPayrollReport, listRecentCycles } from '@/lib/payroll'
 import { formatMoney } from '@/lib/money'
 import { formatDate, formatTimestampDate } from '@/lib/dates'
 import { PAY_CYCLE_LENGTH_LABELS } from '@trade-assist/db'
+import {
+  Button,
+  ButtonLink,
+  Card,
+  DataTable,
+  EmptyState,
+  type Column,
+} from '@/components/ui'
 import { approvePayrollPeriod } from '../approval-actions'
 
 function localYMD(date: Date): string {
@@ -51,6 +59,28 @@ export default async function PayrollPage({
 
   const exportQuery = `from=${from}&to=${to}`
 
+  const payrollColumns: Column<(typeof staffRows)[number]>[] = [
+    {
+      key: 'staff',
+      header: 'Staff',
+      mobile: 'title',
+      className: 'font-medium',
+      cell: (s) => s.staffName,
+    },
+    {
+      key: 'pay',
+      header: 'Pay',
+      mobile: 'meta',
+      cell: (s) => (s.totalPay !== null ? formatMoney(s.totalPay, currency) : '—'),
+    },
+    { key: 'hours', header: 'Hours', cell: (s) => s.totalHours.toFixed(2) },
+    {
+      key: 'rate',
+      header: 'Rate',
+      cell: (s) => (s.rate !== null ? formatMoney(s.rate, currency) : '—'),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -83,7 +113,7 @@ export default async function PayrollPage({
         })}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-surface-border p-4">
+      <Card className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm">
           <p className="font-medium">
             {formatDate(from)} – {formatDate(to)}
@@ -98,68 +128,46 @@ export default async function PayrollPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`/api/payroll/csv?${exportQuery}`}
-            className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
-          >
+          <ButtonLink href={`/api/payroll/csv?${exportQuery}`} size="sm">
             Download CSV
-          </a>
-          <a
-            href={`/api/payroll/pdf?${exportQuery}`}
-            className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
-          >
+          </ButtonLink>
+          <ButtonLink href={`/api/payroll/pdf?${exportQuery}`} size="sm">
             Download PDF
-          </a>
+          </ButtonLink>
           {!approvedAt && (
             <form action={approvePayrollPeriod}>
               <input type="hidden" name="period_start" value={from} />
               <input type="hidden" name="period_end" value={to} />
-              <button
-                type="submit"
-                className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90"
-              >
+              <Button type="submit" variant="primary" size="sm">
                 Approve period
-              </button>
+              </Button>
             </form>
           )}
         </div>
-      </div>
+      </Card>
 
       {staffRows.length === 0 ? (
-        <p className="text-sm text-muted">No timesheet entries in this period.</p>
+        <EmptyState title="No timesheet entries in this period." />
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="overflow-x-auto rounded-lg border border-surface-border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Staff</th>
-                  <th className="px-4 py-2 font-medium">Hours</th>
-                  <th className="px-4 py-2 font-medium">Rate</th>
-                  <th className="px-4 py-2 font-medium">Pay</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staffRows.map((staff) => (
-                  <tr key={staff.profileId} className="border-t border-surface-border">
-                    <td className="px-4 py-2 font-medium">{staff.staffName}</td>
-                    <td className="px-4 py-2">{staff.totalHours.toFixed(2)}</td>
-                    <td className="px-4 py-2">{staff.rate !== null ? formatMoney(staff.rate, currency) : '—'}</td>
-                    <td className="px-4 py-2">{staff.totalPay !== null ? formatMoney(staff.totalPay, currency) : '—'}</td>
-                  </tr>
-                ))}
-                <tr className="border-t border-surface-border bg-surface font-medium">
-                  <td className="px-4 py-2">Total</td>
-                  <td className="px-4 py-2">{grandHours.toFixed(2)}</td>
-                  <td className="px-4 py-2" />
-                  <td className="px-4 py-2">{formatMoney(grandPay, currency)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <DataTable
+            columns={payrollColumns}
+            rows={staffRows}
+            getRowKey={(staff) => staff.profileId}
+          />
+
+          {/* Totals sit outside the table: DataTable renders cards on mobile,
+              and a totals "row" among them would read as another staff member. */}
+          <div className="flex items-center justify-between rounded-lg border border-surface-border bg-surface px-4 py-2 text-sm font-medium">
+            <span>Total</span>
+            <span className="flex gap-6">
+              <span>{grandHours.toFixed(2)} h</span>
+              <span>{formatMoney(grandPay, currency)}</span>
+            </span>
           </div>
 
           {staffRows.map((staff) => (
-            <section key={staff.profileId} className="rounded-lg border border-surface-border p-4">
+            <Card key={staff.profileId}>
               <h2 className="mb-3 text-sm font-medium">{staff.staffName}</h2>
               <ul className="flex flex-col gap-1 text-sm">
                 {staff.entries.map((entry) => (
@@ -181,7 +189,7 @@ export default async function PayrollPage({
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           ))}
         </div>
       )}

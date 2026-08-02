@@ -23,6 +23,7 @@ import {
 } from './team-actions'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import FileUploadButtons from '@/components/FileUploadButtons'
+import { buttonClasses, cardClasses, checkboxClasses, inputClasses } from '@/components/ui'
 
 type ProfileWithCompany = Profile & { company: Company | null }
 
@@ -103,7 +104,7 @@ export default async function SettingsPage({
       {error && <p className="rounded-md bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-sm font-medium">Customer details</h2>
@@ -111,7 +112,7 @@ export default async function SettingsPage({
           </div>
           <Link
             href="/customers"
-            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+            className={buttonClasses()}
           >
             Customer Details
           </Link>
@@ -120,7 +121,7 @@ export default async function SettingsPage({
       )}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Company</h2>
 
         <div className="mb-4 flex flex-wrap items-center gap-4">
@@ -155,7 +156,7 @@ export default async function SettingsPage({
               type="text"
               required
               defaultValue={company?.name ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -167,7 +168,7 @@ export default async function SettingsPage({
               name="gst_number"
               type="text"
               defaultValue={company?.gst_number ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -179,7 +180,7 @@ export default async function SettingsPage({
               name="address"
               rows={2}
               defaultValue={company?.address ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -188,7 +189,7 @@ export default async function SettingsPage({
               name="gst_registered"
               type="checkbox"
               defaultChecked={company?.gst_registered ?? true}
-              className="h-4 w-4 rounded border-surface-border"
+              className={checkboxClasses()}
             />
             <label htmlFor="gst_registered" className="text-sm font-medium">
               GST / tax registered
@@ -202,7 +203,7 @@ export default async function SettingsPage({
               id="currency"
               name="currency"
               defaultValue={company?.currency ?? 'USD'}
-              className="max-w-xs rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses('md', 'max-w-xs')}
             >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -222,7 +223,7 @@ export default async function SettingsPage({
                 type="text"
                 placeholder="GST, VAT, Sales Tax…"
                 defaultValue={company?.tax_label ?? 'Tax'}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className={inputClasses()}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -237,7 +238,7 @@ export default async function SettingsPage({
                 min="0"
                 max="100"
                 defaultValue={company?.default_tax_rate ?? 0}
-                className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className={inputClasses()}
               />
             </div>
           </div>
@@ -252,7 +253,7 @@ export default async function SettingsPage({
               required
               maxLength={10}
               defaultValue={company?.job_prefix ?? 'JOB-'}
-              className="w-40 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses('md', 'w-40')}
             />
             <p className="text-xs text-muted">
               Applies to new jobs (e.g. {(company?.job_prefix ?? 'JOB-')}0042). The sequential number
@@ -269,12 +270,12 @@ export default async function SettingsPage({
               rows={3}
               placeholder="Bank name, account name, account number/IBAN, etc. — shown on every invoice."
               defaultValue={company?.payment_details ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <button
             type="submit"
-            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+            className={buttonClasses('primary', 'md', 'self-start')}
           >
             Save company details
           </button>
@@ -283,7 +284,7 @@ export default async function SettingsPage({
       )}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-2 text-sm font-medium">Calendar subscription</h2>
         <p className="mb-3 text-sm text-muted">
           Subscribe to this URL in Google Calendar, Outlook, or Apple Calendar to see your jobs
@@ -296,7 +297,7 @@ export default async function SettingsPage({
         <form action={regenerateCalendarToken}>
           <button
             type="submit"
-            className="rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+            className={buttonClasses('secondary', 'sm')}
           >
             Regenerate link
           </button>
@@ -305,7 +306,7 @@ export default async function SettingsPage({
       )}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Modules</h2>
         <p className="mb-4 text-sm text-muted">
           Switch off any section your business doesn&apos;t use. Existing data is kept and reappears
@@ -318,7 +319,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="modules_quotes_enabled"
                 defaultChecked={company?.modules_quotes_enabled ?? true}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Quotes
             </label>
@@ -327,7 +328,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="modules_invoicing_enabled"
                 defaultChecked={company?.modules_invoicing_enabled ?? true}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Invoicing
             </label>
@@ -336,7 +337,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="modules_expenses_enabled"
                 defaultChecked={company?.modules_expenses_enabled ?? true}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Expenses
             </label>
@@ -345,7 +346,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="modules_reports_enabled"
                 defaultChecked={company?.modules_reports_enabled ?? true}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Reports
             </label>
@@ -354,14 +355,14 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="modules_timesheets_enabled"
                 defaultChecked={company?.modules_timesheets_enabled ?? true}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Timesheets
             </label>
           </div>
           <button
             type="submit"
-            className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+            className={buttonClasses('secondary', 'md', 'self-start')}
           >
             Save modules
           </button>
@@ -370,7 +371,7 @@ export default async function SettingsPage({
       )}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Timesheets</h2>
         <form action={updateTimesheetSettings} className="flex flex-col gap-5">
           <div className="flex flex-col gap-3">
@@ -382,7 +383,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="geofence_enabled"
                 defaultChecked={company?.geofence_enabled ?? false}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Require staff to be within range of the job site to clock in/out
             </label>
@@ -397,7 +398,7 @@ export default async function SettingsPage({
                 min="1"
                 step="1"
                 defaultValue={company?.geofence_radius_meters ?? 200}
-                className="w-32 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                className={inputClasses('md', 'w-32')}
               />
             </div>
           </div>
@@ -411,7 +412,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="workday_enforced"
                 defaultChecked={company?.workday_enforced ?? false}
-                className="h-4 w-4 rounded border-surface-border"
+                className={checkboxClasses()}
               />
               Only allow clocking in/out within work-day hours
             </label>
@@ -425,7 +426,7 @@ export default async function SettingsPage({
                   name="workday_start"
                   type="time"
                   defaultValue={(company?.workday_start ?? '07:00').slice(0, 5)}
-                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className={inputClasses('md', 'w-36')}
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -437,7 +438,7 @@ export default async function SettingsPage({
                   name="workday_end"
                   type="time"
                   defaultValue={(company?.workday_end ?? '17:00').slice(0, 5)}
-                  className="w-36 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className={inputClasses('md', 'w-36')}
                 />
               </div>
             </div>
@@ -451,7 +452,7 @@ export default async function SettingsPage({
                       name="workday_days"
                       value={day}
                       defaultChecked={(company?.workday_days ?? [1, 2, 3, 4, 5]).includes(day)}
-                      className="h-4 w-4 rounded border-surface-border"
+                      className={checkboxClasses()}
                     />
                     {WORKDAY_DAY_LABELS[day]}
                   </label>
@@ -473,7 +474,7 @@ export default async function SettingsPage({
                   id="pay_cycle_length"
                   name="pay_cycle_length"
                   defaultValue={company?.pay_cycle_length ?? 'weekly'}
-                  className="w-40 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className={inputClasses('md', 'w-40')}
                 >
                   {PAY_CYCLE_LENGTHS.map((length) => (
                     <option key={length} value={length}>
@@ -491,7 +492,7 @@ export default async function SettingsPage({
                   name="pay_cycle_anchor"
                   type="date"
                   defaultValue={company?.pay_cycle_anchor ?? ''}
-                  className="w-44 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className={inputClasses('md', 'w-44')}
                 />
               </div>
             </div>
@@ -499,7 +500,7 @@ export default async function SettingsPage({
 
           <button
             type="submit"
-            className="self-start rounded-md border border-surface-border px-3 py-1.5 text-sm font-medium hover:border-accent"
+            className={buttonClasses('secondary', 'md', 'self-start')}
           >
             Save timesheet settings
           </button>
@@ -508,7 +509,7 @@ export default async function SettingsPage({
       )}
 
       {isCompany && (
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Team</h2>
 
         {companyMember && (
@@ -573,12 +574,12 @@ export default async function SettingsPage({
               name="email"
               type="email"
               required
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <button
             type="submit"
-            className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+            className={buttonClasses()}
           >
             Invite teammate
           </button>
@@ -586,7 +587,7 @@ export default async function SettingsPage({
       </section>
       )}
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Your profile</h2>
         <form action={updateProfile} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
@@ -598,7 +599,7 @@ export default async function SettingsPage({
               name="full_name"
               type="text"
               defaultValue={profile.full_name ?? ''}
-              className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className={inputClasses()}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -617,7 +618,7 @@ export default async function SettingsPage({
           )}
           <button
             type="submit"
-            className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
+            className={buttonClasses('primary', 'md', 'self-start')}
           >
             Save profile
           </button>
@@ -642,7 +643,7 @@ function PermissionToggles({
             type="checkbox"
             name="can_view_all_jobs"
             defaultChecked={member.can_view_all_jobs}
-            className="h-3.5 w-3.5 rounded border-surface-border"
+            className={checkboxClasses()}
           />
           View all company jobs
         </label>
@@ -651,7 +652,7 @@ function PermissionToggles({
             type="checkbox"
             name="can_edit_jobs"
             defaultChecked={member.can_edit_jobs}
-            className="h-3.5 w-3.5 rounded border-surface-border"
+            className={checkboxClasses()}
           />
           Edit jobs
         </label>
@@ -660,7 +661,7 @@ function PermissionToggles({
             type="checkbox"
             name="can_log_expenses"
             defaultChecked={member.can_log_expenses}
-            className="h-3.5 w-3.5 rounded border-surface-border"
+            className={checkboxClasses()}
           />
           Log expenses/costs
         </label>
@@ -669,7 +670,7 @@ function PermissionToggles({
             type="checkbox"
             name="can_view_reports"
             defaultChecked={member.can_view_reports}
-            className="h-3.5 w-3.5 rounded border-surface-border"
+            className={checkboxClasses()}
           />
           View reports
         </label>
@@ -678,7 +679,7 @@ function PermissionToggles({
             type="checkbox"
             name="can_schedule"
             defaultChecked={member.can_schedule}
-            className="h-3.5 w-3.5 rounded border-surface-border"
+            className={checkboxClasses()}
           />
           Scheduling
         </label>
@@ -689,7 +690,7 @@ function PermissionToggles({
           <select
             name="quotes_access"
             defaultValue={member.quotes_access}
-            className="rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+            className={inputClasses('sm', '')}
           >
             <option value="hidden">Hidden</option>
             <option value="view">View</option>
@@ -701,7 +702,7 @@ function PermissionToggles({
           <select
             name="invoices_access"
             defaultValue={member.invoices_access}
-            className="rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+            className={inputClasses('sm', '')}
           >
             <option value="hidden">Hidden</option>
             <option value="view">View</option>
@@ -717,13 +718,13 @@ function PermissionToggles({
             min="0"
             placeholder="Not set"
             defaultValue={member.pay_rate ?? ''}
-            className="w-24 rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
+            className={inputClasses('sm', 'w-24')}
           />
         </div>
       </div>
       <button
         type="submit"
-        className="self-start rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+        className={buttonClasses('secondary', 'sm', 'self-start')}
       >
         Save permissions
       </button>

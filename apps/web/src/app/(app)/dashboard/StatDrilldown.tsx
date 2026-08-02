@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { formatMoney } from '@/lib/money'
+import { cardClasses } from '@/components/ui'
 
 export type DrilldownItem = {
   id: string
@@ -31,7 +32,7 @@ export default function StatDrilldown({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="rounded-lg border border-surface-border p-4 text-left hover:border-accent"
+        className={cardClasses('text-left transition-colors hover:border-accent')}
       >
         <p className="text-2xl font-semibold">{items.length}</p>
         <p className="text-xs text-muted">{label}</p>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { inputClasses } from '@/components/ui'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
@@ -159,7 +160,7 @@ export default function ChatWidget() {
             }}
             rows={2}
             placeholder="Message the assistant…"
-            className="flex-1 resize-none rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            className={inputClasses('md', 'flex-1 resize-none')}
           />
           {speechSupported && (
             <button

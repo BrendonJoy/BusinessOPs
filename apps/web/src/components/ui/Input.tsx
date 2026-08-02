@@ -21,13 +21,19 @@ export function Textarea({
   return <textarea className={inputClasses(size, cx('min-h-24', className), fullWidth)} {...props} />
 }
 
-/** Defaults to auto width — selects are usually sized by their longest option. */
+/**
+ * Defaults to auto width — selects are usually sized by their longest option.
+ *
+ * The native `size` attribute (a row count) is omitted so it doesn't collide
+ * with our control-size prop; without the Omit the two types intersect to
+ * `undefined` and `size` silently stops accepting anything.
+ */
 export function Select({
   size,
   fullWidth = false,
   className,
   ...props
-}: ComponentProps<'select'> & Sized) {
+}: Omit<ComponentProps<'select'>, 'size'> & Sized) {
   return <select className={inputClasses(size, className, fullWidth)} {...props} />
 }
 

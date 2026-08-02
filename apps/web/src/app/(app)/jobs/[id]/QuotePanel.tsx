@@ -5,6 +5,7 @@ import type { AccessLevel, Quote, QuoteLineItem } from '@trade-assist/db'
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
 import { formatTimestampDate } from '@/lib/dates'
+import { buttonClasses, cardClasses, inputClasses } from '@/components/ui'
 import {
   addQuoteLineItemsBulk,
   createQuote,
@@ -50,14 +51,14 @@ export default function QuotePanel({
   const grandTotal = (q: QuoteDetail) => Number(q.total) + (gstRegistered ? Number(q.tax_amount) : 0)
 
   return (
-    <section className="rounded-lg border border-surface-border p-4">
+    <section className={cardClasses()}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium">Quote</h2>
         {!canEdit ? null : !quote ? (
           <form action={boundCreateQuote}>
             <button
               type="submit"
-              className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+              className={buttonClasses('secondary', 'sm')}
             >
               Create quote
             </button>
@@ -66,7 +67,7 @@ export default function QuotePanel({
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+            className={buttonClasses('secondary', 'sm')}
           >
             Edit
           </button>
@@ -74,7 +75,7 @@ export default function QuotePanel({
           <form action={createQuoteVersion.bind(null, quote.id, jobId)}>
             <button
               type="submit"
-              className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+              className={buttonClasses('secondary', 'sm')}
             >
               Edit (new version)
             </button>
@@ -203,12 +204,12 @@ export default function QuotePanel({
                         step="1"
                         disabled={!requireDeposit}
                         defaultValue={quote.deposit_percent || 20}
-                        className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:opacity-50"
+                        className={inputClasses('md', 'w-24')}
                       />
                     </div>
                     <button
                       type="submit"
-                      className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+                      className={buttonClasses()}
                     >
                       Update
                     </button>
@@ -232,12 +233,12 @@ export default function QuotePanel({
                         max="100"
                         step="0.01"
                         defaultValue={quote.tax_rate}
-                        className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                        className={inputClasses('md', 'w-24')}
                       />
                     </div>
                     <button
                       type="submit"
-                      className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+                      className={buttonClasses()}
                     >
                       Update
                     </button>

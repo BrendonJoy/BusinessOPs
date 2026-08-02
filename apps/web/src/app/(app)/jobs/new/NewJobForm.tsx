@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
-import { Button, Field, Input, Textarea, checkboxClasses } from '@/components/ui'
+import { Button, Field, Input, Textarea, cardClasses, checkboxClasses } from '@/components/ui'
 
 type FormValues = {
   customerName: string
@@ -104,7 +104,7 @@ export default function NewJobForm({
   return (
     <div className="flex flex-col gap-6">
       <form action={createJob} className="flex flex-col gap-4">
-        <fieldset className="flex flex-col gap-4 rounded-lg border border-surface-border p-4">
+        <fieldset className={cardClasses('flex flex-col gap-4')}>
           <legend className="px-1 text-sm font-medium">Customer</legend>
           <input type="hidden" name="customer_id" value={selectedCustomerId ?? ''} />
           <div className="flex flex-col gap-1.5">

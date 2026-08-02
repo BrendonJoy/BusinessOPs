@@ -6,6 +6,7 @@ import type { AccessLevel, CostEntry, Invoice, InvoiceLineItem } from '@trade-as
 import { LINE_ITEM_TYPE_LABELS } from '@trade-assist/db'
 import { formatMoney } from '@/lib/money'
 import { formatTimestampDate } from '@/lib/dates'
+import { buttonClasses, cardClasses, inputClasses } from '@/components/ui'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import {
   addInvoiceLineItemsBulk,
@@ -60,14 +61,14 @@ export default function InvoicePanel({
   }
 
   return (
-    <section className="rounded-lg border border-surface-border p-4">
+    <section className={cardClasses()}>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium">Invoices</h2>
         {canEdit && (
           <form action={boundCreateInvoice}>
             <button
               type="submit"
-              className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
+              className={buttonClasses('secondary', 'sm')}
             >
               Create invoice
             </button>
@@ -104,14 +105,14 @@ export default function InvoicePanel({
                     <button
                       type="button"
                       onClick={() => openInvoicePanel(invoice.id)}
-                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                      className={buttonClasses('secondary', 'sm')}
                     >
                       Edit
                     </button>
                     <ConfirmSubmitButton
                       action={deleteInvoice.bind(null, invoice.id, jobId)}
                       confirmMessage="Permanently delete this draft invoice? This cannot be undone."
-                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                      className={buttonClasses('secondary', 'sm')}
                     >
                       Delete
                     </ConfirmSubmitButton>
@@ -120,7 +121,7 @@ export default function InvoicePanel({
                   <form action={createInvoiceVersion.bind(null, invoice.id, jobId)} className="ml-auto">
                     <button
                       type="submit"
-                      className="rounded-md border border-surface-border px-3 py-1 text-xs font-medium hover:border-accent"
+                      className={buttonClasses('secondary', 'sm')}
                     >
                       Edit (new version)
                     </button>
@@ -236,12 +237,12 @@ export default function InvoicePanel({
                     max="100"
                     step="0.01"
                     defaultValue={openInvoice.tax_rate}
-                    className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className={inputClasses('md', 'w-24')}
                   />
                 </div>
                 <button
                   type="submit"
-                  className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
+                  className={buttonClasses()}
                 >
                   Update
                 </button>

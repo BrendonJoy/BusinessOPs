@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { formatMoney } from '@/lib/money'
 import { LINE_ITEM_TYPES, LINE_ITEM_TYPE_LABELS, type LineItemType } from '@trade-assist/db'
+import { Button, Field, Input, Select } from '@/components/ui'
 
 export type EditableLineItem = {
   key: string
@@ -63,73 +64,85 @@ export default function LineItemsEditor({
 
       <div className="flex flex-col gap-3">
         {rows.map((row) => (
-          <div key={row.key} className="flex flex-wrap items-end gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium">Type</label>
-              <select
+          <div
+            key={row.key}
+            className="flex flex-col gap-2 rounded-md border border-surface-border p-3 sm:flex-row sm:flex-wrap sm:items-end sm:border-0 sm:p-0"
+          >
+            <Field label="Type" htmlFor={`type-${row.key}`}>
+              <Select
+                id={`type-${row.key}`}
                 value={row.item_type}
                 onChange={(e) => updateRow(row.key, { item_type: e.target.value as LineItemType })}
-                className="rounded-md border border-surface-border bg-background px-2 py-2 text-sm focus:border-accent focus:outline-none"
               >
                 {LINE_ITEM_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {LINE_ITEM_TYPE_LABELS[t]}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div className="flex min-w-[160px] flex-1 flex-col gap-1">
-              <label className="text-xs font-medium">Description</label>
-              <input
+            <Field
+              label="Description"
+              htmlFor={`desc-${row.key}`}
+              className="min-w-[160px] flex-1"
+            >
+              <Input
+                id={`desc-${row.key}`}
                 type="text"
                 value={row.description}
                 onChange={(e) => updateRow(row.key, { description: e.target.value })}
-                className="w-full rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
               />
-            </div>
+            </Field>
 
             {row.item_type === 'callout' ? (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Amount</label>
-                <input
+              <Field label="Amount" htmlFor={`amount-${row.key}`}>
+                <Input
+                  id={`amount-${row.key}`}
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   value={row.unit_price}
                   onChange={(e) => updateRow(row.key, { unit_price: Number(e.target.value) })}
-                  className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  className="sm:w-28"
                 />
-              </div>
+              </Field>
             ) : (
               <>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">{row.item_type === 'labour' ? 'Hours' : 'Qty'}</label>
-                  <input
+                <Field
+                  label={row.item_type === 'labour' ? 'Hours' : 'Qty'}
+                  htmlFor={`qty-${row.key}`}
+                >
+                  <Input
+                    id={`qty-${row.key}`}
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) })}
-                    className="w-20 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="sm:w-20"
                   />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">
-                    {row.item_type === 'labour' ? 'Rate' : 'Unit price'}
-                  </label>
-                  <input
+                </Field>
+                <Field
+                  label={row.item_type === 'labour' ? 'Rate' : 'Unit price'}
+                  htmlFor={`price-${row.key}`}
+                >
+                  <Input
+                    id={`price-${row.key}`}
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
                     value={row.unit_price}
                     onChange={(e) => updateRow(row.key, { unit_price: Number(e.target.value) })}
-                    className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    className="sm:w-24"
                   />
-                </div>
+                </Field>
               </>
             )}
 
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium">Total</span>
-              <p className="px-1 py-2 text-sm">
+            <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:gap-1">
+              <span className="text-sm font-medium sm:text-xs">Total</span>
+              <p className="text-sm sm:px-1 sm:py-2">
                 {formatMoney((row.item_type === 'callout' ? 1 : row.quantity) * row.unit_price, currency)}
               </p>
             </div>
@@ -137,7 +150,7 @@ export default function LineItemsEditor({
             <button
               type="button"
               onClick={() => removeRow(row.key)}
-              className="text-xs text-muted hover:text-accent"
+              className="self-start text-xs text-muted hover:text-accent"
             >
               Remove
             </button>
@@ -146,21 +159,12 @@ export default function LineItemsEditor({
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={addRow}
-          className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent"
-        >
+        <Button type="button" onClick={addRow} size="sm">
           Add row
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isSaving}
-          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
-        >
+        </Button>
+        <Button type="button" onClick={handleSave} disabled={isSaving} variant="primary" size="sm">
           {isSaving ? 'Saving…' : 'Save items'}
-        </button>
+        </Button>
       </div>
     </div>
   )

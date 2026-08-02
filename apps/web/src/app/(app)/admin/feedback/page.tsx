@@ -8,6 +8,7 @@ import {
   FEEDBACK_STATUS_LABELS,
 } from '@trade-assist/db'
 import type { FeedbackCategory, FeedbackDigest, FeedbackStatus } from '@trade-assist/db'
+import { Button, Card, EmptyState, Select, cardClasses } from '@/components/ui'
 import { generateFeedbackDigest, updateFeedbackStatus } from './actions'
 
 type AdminFeedbackRow = {
@@ -49,17 +50,13 @@ export default async function AdminFeedbackPage() {
     <div>
       <h1 className="mb-6 text-xl font-semibold">Feedback inbox</h1>
 
-      <section className="mb-8 rounded-lg border border-surface-border p-4">
-        <div className="mb-3 flex items-center justify-between">
+      <Card className="mb-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium">AI reports</h2>
           <form action={generateFeedbackDigest}>
-            <button
-              type="submit"
-              disabled={newCount === 0}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
-            >
+            <Button type="submit" variant="primary" size="sm" disabled={newCount === 0}>
               {newCount === 0 ? 'Nothing new to summarize' : `Generate report (${newCount} new)`}
-            </button>
+            </Button>
           </form>
         </div>
         <p className="mb-3 text-xs text-muted">
@@ -68,7 +65,7 @@ export default async function AdminFeedbackPage() {
         </p>
 
         {digests.length === 0 ? (
-          <p className="text-sm text-muted">No reports generated yet.</p>
+          <EmptyState title="No reports generated yet." />
         ) : (
           <ul className="flex flex-col gap-4">
             {digests.map((d) => (
@@ -109,14 +106,14 @@ export default async function AdminFeedbackPage() {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
       {messages.length === 0 ? (
-        <p className="text-sm text-muted">No feedback yet.</p>
+        <EmptyState title="No feedback yet." />
       ) : (
         <ul className="flex flex-col gap-3">
           {messages.map((m) => (
-            <li key={m.id} className="rounded-lg border border-surface-border p-4 text-sm">
+            <li key={m.id} className={cardClasses('text-sm')}>
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                 <span className="inline-flex items-center rounded-full bg-surface px-2 py-0.5 font-medium text-foreground">
                   {FEEDBACK_CATEGORY_LABELS[m.category]}
@@ -125,17 +122,13 @@ export default async function AdminFeedbackPage() {
                 <span>{m.profile?.full_name ?? 'Unknown user'}</span>
                 <span>{formatAuditTimestamp(m.created_at)}</span>
                 <form action={updateFeedbackStatus.bind(null, m.id)} className="ml-auto flex items-center gap-2">
-                  <select
-                    name="status"
-                    defaultValue={m.status}
-                    className="rounded-md border border-surface-border bg-background px-2 py-1 text-xs focus:border-accent focus:outline-none"
-                  >
+                  <Select name="status" defaultValue={m.status} size="sm" aria-label="Feedback status">
                     {FEEDBACK_STATUSES.map((s) => (
                       <option key={s} value={s}>
                         {FEEDBACK_STATUS_LABELS[s]}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <button type="submit" className="text-xs text-accent hover:opacity-80">
                     Update
                   </button>

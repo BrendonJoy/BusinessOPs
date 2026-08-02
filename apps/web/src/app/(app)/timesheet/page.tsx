@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules, getTimesheetSettings } from '@/lib/company'
 import { formatDayLabel } from '@/lib/dates'
+import { Card, EmptyState } from '@/components/ui'
 import { JOB_STATUS_GROUPS, TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
 import ClockWidget from './ClockWidget'
 import SubmitDayButton from './SubmitDayButton'
@@ -173,10 +174,10 @@ export default async function TimesheetPage({
         clockOutAction={boundClockOut}
       />
 
-      <section className="rounded-lg border border-surface-border p-4">
+      <Card>
         <h2 className="mb-3 text-sm font-medium">Last 14 days</h2>
         {sortedDays.length === 0 ? (
-          <p className="text-sm text-muted">No timesheet entries yet.</p>
+          <EmptyState title="No timesheet entries yet." description="Clock in above to start tracking time." />
         ) : (
           <div className="flex flex-col gap-4">
             {sortedDays.map(([workDate, group]) => {
@@ -212,7 +213,7 @@ export default async function TimesheetPage({
             })}
           </div>
         )}
-      </section>
+      </Card>
     </div>
   )
 }

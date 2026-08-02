@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Button, Field, Input, Select } from '@/components/ui'
 
 export default function CostEntryForm({
   action,
@@ -19,69 +20,45 @@ export default function CostEntryForm({
   }
 
   return (
-    <form action={action} className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="type" className="text-xs font-medium">
-          Type
-        </label>
-        <select
-          id="type"
-          name="type"
-          onChange={handleTypeChange}
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        >
+    <form action={action} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <Field label="Type" htmlFor="type">
+        <Select id="type" name="type" onChange={handleTypeChange}>
           <option value="material">Material</option>
           <option value="labour">Labour</option>
-        </select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="description" className="text-xs font-medium">
-          Description
-        </label>
-        <input
-          id="description"
-          name="description"
-          type="text"
-          required
-          className="rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="quantity" className="text-xs font-medium">
-          Qty / hours
-        </label>
-        <input
+        </Select>
+      </Field>
+      <Field label="Description" htmlFor="description" required className="min-w-[200px] flex-1">
+        <Input id="description" name="description" type="text" required />
+      </Field>
+      <Field label="Qty / hours" htmlFor="quantity">
+        <Input
           id="quantity"
           name="quantity"
           type="number"
+          inputMode="decimal"
           step="0.01"
           defaultValue="1"
-          className="w-24 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          className="sm:w-24"
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="unit_cost" className="text-xs font-medium">
-          Unit cost / rate
-        </label>
-        <input
+      </Field>
+      <Field label="Unit cost / rate" htmlFor="unit_cost">
+        <Input
           id="unit_cost"
           name="unit_cost"
           type="number"
+          inputMode="decimal"
           step="0.01"
           value={unitCost}
           onChange={(e) => {
             setUnitCost(e.target.value)
             setTouched(true)
           }}
-          className="w-28 rounded-md border border-surface-border bg-background px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          className="sm:w-28"
         />
-      </div>
-      <button
-        type="submit"
-        className="rounded-md border border-surface-border px-4 py-2 text-sm font-medium hover:border-accent"
-      >
+      </Field>
+      <Button type="submit" className="w-full sm:w-auto">
         Add
-      </button>
+      </Button>
     </form>
   )
 }
