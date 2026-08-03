@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatMoney } from '@/lib/money'
@@ -22,6 +23,17 @@ type QuotePublicData = {
     tax_label: string
     gst_registered: boolean
   }
+}
+
+/**
+ * This page is public by design — the customer must be able to open it without
+ * an account — but "reachable by anyone holding the link" is not "publishable".
+ * It shows a named individual's address and what they were quoted, so it must
+ * never be indexed. `nocache`/`noarchive` also keep it out of search-engine
+ * caches, which outlive the quote itself.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true, noarchive: true },
 }
 
 export default async function PublicQuotePage({
