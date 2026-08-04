@@ -1,7 +1,7 @@
 # Runbook: moving Supabase from Mumbai to London
 
 **Status:** Phases 1–7 complete 2026-08-02. Production is live on London.
-**Phase 8 (deleting the old project) is still OUTSTANDING** — see the bottom of this file. Until it is done, the personal data still resides outside the UK and the transfer problem is not remediated.
+**COMPLETE. Phase 8 was carried out on 2026-08-04** — the old project is deleted and no copy of this data remains outside the UK. This file is kept as the record of how it was done, and as the runbook if a region move is ever needed again.
 
 ## Why
 
@@ -156,25 +156,43 @@ Verified against the live site:
 
 Also note `/login` ships no Supabase reference at all: it is server-rendered with a server action, so the browser client never loads there. Scan a client-component page instead.
 
-## Phase 8 — Decommission (OUTSTANDING)
+## Phase 8 — Decommission (DONE 2026-08-04)
 
-Deliberately deferred on 2026-08-02. The old project costs nothing to keep and is the only rollback if something surfaces that the checks missed. Give it a few days of real use first.
+Deferred on 2026-08-02 and carried out two days later, once the new project had
+handled real use. The old project was the only rollback, so the delay was the
+point rather than procrastination.
 
-**Then delete the old project.** This is not tidying up — it is the actual remedy. Until it is deleted, the personal data still resides outside the UK and the transfer problem is unresolved.
+**Deleting it was the actual remedy, not tidying up.** Until it was gone, the
+personal data still resided outside the UK.
 
-Checklist when the time comes:
+**Verified before deleting**, so the call rested on evidence rather than elapsed
+time: every table in London matched or exceeded Mumbai's row count — nothing
+lower anywhere, the only differences being activity since cutover — and storage
+matched exactly (1 company logo, 4 expense receipts, 0 job files). No code or
+environment file still referenced the old project.
 
-- [ ] Delete the old Supabase project
-- [ ] **Record the deletion date** — it is the evidence the issue was remediated, and the thing a regulator or a customer's due-diligence questionnaire would ask for
-- [ ] Rotate the London database password (it was shared in a chat transcript during the migration)
-- [ ] Delete `apps/web/.env.migration.local` and `C:\JOYTECH\open-me-to-set-password.html`
+**Verified after:** `tlcvarfbwrrzxlipkamp.supabase.co` no longer resolves.
+
+- [x] Delete the old Supabase project — **2026-08-04**
+- [x] **Deletion date recorded** — in `COMPLIANCE_LOG.md`, which is where a
+      regulator or a customer's due-diligence questionnaire would look
+- [ ] Rotate the London database password (it was shared in a chat transcript
+      during the migration) — **still outstanding**
+- [ ] Delete `apps/web/.env.local.mumbai-backup` — holds the deleted project's
+      service-role key; useless now, but should not linger
+- [ ] `C:\JOYTECH\open-me-to-set-password.html` — delete if still present
 - [ ] Confirm custom SMTP and the `{{ .Token }}` reset template are still set on London
+
+**Deliberately NOT deleted:** `apps/web/.env.migration.local`. The original
+checklist said to remove it, but it holds `MIGRATION_DB_URL`, which is how
+migrations are applied to production (0032 and 0033 went through it). It is
+gitignored. Update it after rotating the password rather than deleting it.
 
 Rollback disappears at the first step.
 
 ## Rollback
 
-Before Phase 8, rollback is reverting the env vars in `.env.local` and Vercel and redeploying. The old project is untouched and authoritative throughout. After Phase 8 there is no rollback, which is why Phase 7 is thorough.
+Before Phase 8, rollback was reverting the env vars in `.env.local` and Vercel and redeploying. The old project was untouched and authoritative throughout. **Phase 8 is now done, so there is no rollback** — which is why Phase 7 was thorough and why the pre-deletion row and storage comparison was repeated on the day.
 
 ## Not covered here
 

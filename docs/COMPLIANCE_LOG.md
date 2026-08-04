@@ -32,9 +32,20 @@ Not legal advice; the policy pages still need a lawyer before paying customers.
 
 **Verified:** live client bundle references the London project and nothing else; `x-vercel-id` confirms execution in `lhr1`; all row counts, recomputed money columns, job numbering and RLS boundaries checked against the source.
 
-**⚠ INCOMPLETE:** the old project still exists, retained as a rollback. **Until it is deleted, the personal data has not left the original jurisdiction.**
+**COMPLETE as at 2026-08-04.** The old project was retained for two days as a
+rollback and has now been deleted, so no copy of this data remains outside the
+UK.
 
-- [ ] Old project `tlcvarfbwrrzxlipkamp` deleted — **date: ____________**
+- [x] Old project `tlcvarfbwrrzxlipkamp` deleted — **date: 2026-08-04**
+
+**Checked immediately before deletion**, so the decision rested on evidence
+rather than elapsed time: every table in London matched or exceeded the row
+count in Mumbai — nothing lower anywhere, the differences being only activity
+since cutover — and storage matched exactly (1 company logo, 4 expense receipts,
+0 job files). No code or environment file referenced the old project.
+
+**Confirmed after deletion:** `tlcvarfbwrrzxlipkamp.supabase.co` no longer
+resolves in DNS and the REST endpoint is unreachable.
 
 ---
 
