@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { buildContentSecurityPolicy } from '@/lib/csp'
 
-const AUTH_PATHS = ['/login', '/signup', '/forgot-password']
+const AUTH_PATHS = ['/login', '/signup', '/forgot-password', '/check-email']
 const PUBLIC_PATHS = [
   '/q',
   '/api/calendar',

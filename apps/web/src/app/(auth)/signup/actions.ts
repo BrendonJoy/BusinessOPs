@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { setPendingConfirmationEmail } from '@/lib/pending-confirmation'
+import { readableAuthError } from '@/lib/auth-errors'
 
 export async function signup(formData: FormData) {
   const email = String(formData.get('email') ?? '')
@@ -19,11 +21,20 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
-    redirect(`/signup?error=${encodeURIComponent(error.message)}`)
+    const message = readableAuthError(
+      error,
+      'We could not create your account. Check the email address and try again.'
+    )
+    redirect(`/signup?error=${encodeURIComponent(message)}`)
   }
 
+  // No session means email confirmation is required. Sending people to the
+  // login form here reads as failure — a login form is what you see when
+  // something went wrong, so the "check your email" notice loses the argument.
+  // Its own screen can say what happened and offer a resend.
   if (!data.session) {
-    redirect(`/login?message=${encodeURIComponent('Check your email to confirm your account, then log in.')}`)
+    await setPendingConfirmationEmail(email)
+    redirect('/check-email')
   }
 
   redirect('/dashboard')

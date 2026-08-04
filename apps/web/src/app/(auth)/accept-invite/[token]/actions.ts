@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { setPendingConfirmationEmail } from '@/lib/pending-confirmation'
+import { readableAuthError } from '@/lib/auth-errors'
 
 type InviteLookup = {
   email: string
@@ -33,11 +35,19 @@ export async function acceptInvite(token: string, formData: FormData) {
   })
 
   if (error) {
-    redirect(`/accept-invite/${token}?error=${encodeURIComponent(error.message)}`)
+    const message = readableAuthError(
+      error,
+      'We could not set up your account. Please try again, or ask for a fresh invite.'
+    )
+    redirect(`/accept-invite/${token}?error=${encodeURIComponent(message)}`)
   }
 
+  // Same dead end as signup, and worse here: accepting consumes the invite, so
+  // a staff member who loses the confirmation email cannot reuse their link
+  // either. Send them somewhere that can send it again.
   if (!data.session) {
-    redirect(`/login?message=${encodeURIComponent('Check your email to confirm your account, then log in.')}`)
+    await setPendingConfirmationEmail(invite.email)
+    redirect('/check-email')
   }
 
   redirect('/jobs')

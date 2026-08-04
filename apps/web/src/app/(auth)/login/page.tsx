@@ -2,6 +2,12 @@ import Link from 'next/link'
 import { Button, Field, Input, Notice } from '@/components/ui'
 import { login } from './actions'
 
+// Supabase returns "Email not confirmed" for this case. Matched loosely so a
+// wording change upstream degrades to no link rather than to a broken page.
+function isUnconfirmed(error: string): boolean {
+  return /not confirmed/i.test(error)
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -18,6 +24,17 @@ export default async function LoginPage({
       {error && (
         <Notice tone="error" className="mb-4">
           {error}
+          {/* Without this, an unconfirmed account is a dead end: the address is
+              taken so you cannot sign up again, and you cannot log in either. */}
+          {isUnconfirmed(error) && (
+            <>
+              {' '}
+              <Link href="/check-email" className="font-medium underline">
+                Resend the confirmation email
+              </Link>
+              .
+            </>
+          )}
         </Notice>
       )}
 
