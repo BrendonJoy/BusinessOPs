@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { JOB_STATUS_LABELS } from '@trade-assist/db'
 import { STATUS_CHIP } from './status-style'
 import type { JobWithCustomer } from '@/lib/jobs'
+import { LocalTimeRange } from '@/components/LocalTime'
+import type { CalendarShift } from './CalendarGrid'
 import { rescheduleJobTime } from './actions'
 
 const PX_PER_MIN = 48 / 60 // 48px per hour
@@ -80,11 +82,15 @@ type DragState = {
 export default function DayView({
   day,
   jobs,
+  // Optional: the dashboard's "Jobs Today" drill-in reuses this panel and is
+  // deliberately about jobs, so it passes none.
+  shifts = [],
   canSchedule,
   onClose,
 }: {
   day: string
   jobs: JobWithCustomer[]
+  shifts?: CalendarShift[]
   canSchedule: boolean
   onClose: () => void
 }) {
@@ -199,7 +205,39 @@ export default function DayView({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {jobs.length === 0 && <p className="text-sm text-muted">No jobs on this day.</p>}
+        {jobs.length === 0 && shifts.length === 0 && (
+          <p className="text-sm text-muted">Nothing on this day.</p>
+        )}
+
+        {/* Shifts are listed rather than drawn on the timeline below. That
+            timeline exists to drag a job to a new time; a shift's times are
+            edited on the roster, and rendering it as a draggable block would
+            promise something that does not work. */}
+        {shifts.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-1 text-xs font-medium text-muted">Shifts</p>
+            <ul className="flex flex-col gap-1.5">
+              {shifts.map((shift) => (
+                <li
+                  key={shift.id}
+                  className="rounded border border-accent/40 bg-accent/10 px-2 py-1.5 text-xs"
+                >
+                  <span className="font-medium tabular-nums">
+                    <LocalTimeRange start={shift.startsAt} end={shift.endsAt} />
+                  </span>
+                  <span className="ml-2">{shift.title ?? shift.teamName}</span>
+                  {shift.title && <span className="ml-1 text-muted">{shift.teamName}</span>}
+                  <span className="ml-2 text-muted">
+                    {shift.assignedCount === 0 ? 'nobody rostered' : `${shift.assignedCount} rostered`}
+                  </span>
+                  {shift.eventName && (
+                    <span className="mt-0.5 block text-muted">{shift.eventName}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {unscheduled.length > 0 && (
           <div className="mb-4">

@@ -7,18 +7,57 @@ import type { JobWithCustomer } from '@/lib/jobs'
 import { rescheduleJob } from './actions'
 import { formatDayLabel } from '@/lib/dates'
 import { EmptyState } from '@/components/ui'
+import LocalTime from '@/components/LocalTime'
 import { STATUS_CHIP, STATUS_DOT, timeLabel } from './status-style'
 import DayView from './DayView'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const BAR_HEIGHT_REM = 1.375
 
+export type CalendarShift = {
+  id: string
+  title: string | null
+  teamName: string
+  eventName: string | null
+  startsAt: string
+  endsAt: string
+  assignedCount: number
+}
+
+export type EventRun = {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+}
+
+/**
+ * A bar spanning several days — a multi-day job, or an event's whole run.
+ *
+ * Both kinds share one lane allocation rather than being drawn in separate
+ * layers, because they occupy the same strip at the top of a week and two
+ * independent packings would happily stack a job on top of an event.
+ */
 type MultiDayBar = {
-  job: JobWithCustomer
+  key: string
+  href: string
+  label: string
+  time: string | null
+  title: string
+  className: string
+  job: JobWithCustomer | null
+  startDate: string
+  endDate: string
   startCol: number
   span: number
   lane: number
 }
+
+// Shifts carry no status, so they get one consistent look that reads as
+// distinct from a job chip rather than borrowing a status colour that would
+// mean something it doesn't.
+const SHIFT_CHIP = 'border border-accent/40 bg-accent/10 text-foreground'
+const EVENT_BAR = 'border border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300'
 
 function chunkWeeks(days: string[]): string[][] {
   const weeks: string[][] = []
@@ -53,6 +92,8 @@ export default function CalendarGrid({
   todayStr,
   jobsByDate,
   multiDayJobs,
+  shiftsByDate,
+  eventRuns,
   canSchedule,
 }: {
   gridDays: string[]
@@ -60,6 +101,8 @@ export default function CalendarGrid({
   todayStr: string
   jobsByDate: Record<string, JobWithCustomer[]>
   multiDayJobs: JobWithCustomer[]
+  shiftsByDate: Record<string, CalendarShift[]>
+  eventRuns: EventRun[]
   canSchedule: boolean
 }) {
   const [hoveredDay, setHoveredDay] = useState<string | null>(null)
@@ -120,8 +163,9 @@ export default function CalendarGrid({
       jobs: jobsOnDay(day).sort((a, b) =>
         (a.start_time ?? '99:99').localeCompare(b.start_time ?? '99:99')
       ),
+      shifts: [...(shiftsByDate[day] ?? [])].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     }))
-    .filter(({ jobs }) => jobs.length > 0)
+    .filter(({ jobs, shifts }) => jobs.length + shifts.length > 0)
 
   return (
     <>
@@ -129,6 +173,7 @@ export default function CalendarGrid({
         <DayView
           day={selectedDay}
           jobs={jobsOnDay(selectedDay)}
+          shifts={shiftsByDate[selectedDay] ?? []}
           canSchedule={canSchedule}
           onClose={() => setSelectedDay(null)}
         />
@@ -145,7 +190,7 @@ export default function CalendarGrid({
           description="Jobs with a start date will appear here."
         />
       ) : (
-        agendaDays.map(({ day, jobs }) => (
+        agendaDays.map(({ day, jobs, shifts }) => (
           <div key={day} className="rounded-lg border border-surface-border">
             <button
               type="button"
@@ -159,7 +204,13 @@ export default function CalendarGrid({
                 {day === todayStr && <span className="ml-2 text-xs font-normal">Today</span>}
               </span>
               <span className="text-xs font-normal text-muted">
-                {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'}
+                {[
+                  jobs.length > 0 && `${jobs.length} ${jobs.length === 1 ? 'job' : 'jobs'}`,
+                  shifts.length > 0 &&
+                    `${shifts.length} ${shifts.length === 1 ? 'shift' : 'shifts'}`,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
               </span>
             </button>
             <ul className="flex flex-col divide-y divide-surface-border">
@@ -185,6 +236,29 @@ export default function CalendarGrid({
                   </Link>
                 </li>
               ))}
+
+              {shifts.map((shift) => (
+                <li key={shift.id}>
+                  <Link
+                    href="/roster"
+                    className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm active:bg-surface"
+                  >
+                    <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+                    <span className="shrink-0 tabular-nums text-muted">
+                      <LocalTime iso={shift.startsAt} format="time" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {shift.title ?? shift.teamName}
+                      {shift.eventName && (
+                        <span className="ml-1 text-muted">· {shift.eventName}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {shift.assignedCount === 0 ? 'unstaffed' : `${shift.assignedCount} on`}
+                    </span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         ))
@@ -204,15 +278,43 @@ export default function CalendarGrid({
         const weekStart = week[0]
         const weekEnd = week[6]
 
+        const spanning: Omit<MultiDayBar, 'startCol' | 'span' | 'lane'>[] = [
+          ...multiDayJobs
+            .filter((job) => job.start_date && job.finish_date)
+            .map((job) => ({
+              key: `job-${job.id}`,
+              href: `/jobs/${job.id}`,
+              label: job.customer?.name ?? job.job_number ?? 'Job',
+              time: timeLabel(job.start_time) || null,
+              title: `${job.job_number ?? ''} — ${job.customer?.name ?? ''} (${JOB_STATUS_LABELS[job.status]})`,
+              className: STATUS_CHIP[job.status],
+              job,
+              startDate: job.start_date!,
+              endDate: job.finish_date!,
+            })),
+          ...eventRuns.map((event) => ({
+            key: `event-${event.id}`,
+            href: `/events/${event.id}`,
+            label: event.name,
+            time: null,
+            title: `${event.name} — ${event.startDate} to ${event.endDate}`,
+            className: EVENT_BAR,
+            // Events are not draggable: moving one means moving its typed days,
+            // which is an edit on the event rather than a date swap.
+            job: null,
+            startDate: event.startDate,
+            endDate: event.endDate,
+          })),
+        ]
+
         const bars: MultiDayBar[] = []
-        for (const job of multiDayJobs) {
-          if (!job.start_date || !job.finish_date) continue
-          if (job.finish_date < weekStart || job.start_date > weekEnd) continue
-          const segStart = job.start_date < weekStart ? weekStart : job.start_date
-          const segEnd = job.finish_date > weekEnd ? weekEnd : job.finish_date
+        for (const item of spanning) {
+          if (item.endDate < weekStart || item.startDate > weekEnd) continue
+          const segStart = item.startDate < weekStart ? weekStart : item.startDate
+          const segEnd = item.endDate > weekEnd ? weekEnd : item.endDate
           const startCol = week.indexOf(segStart)
           const endCol = week.indexOf(segEnd)
-          bars.push({ job, startCol, span: endCol - startCol + 1, lane: 0 })
+          bars.push({ ...item, startCol, span: endCol - startCol + 1, lane: 0 })
         }
         const lanes = assignLanes(bars.map((b) => ({ startCol: b.startCol, span: b.span })))
         bars.forEach((b, i) => (b.lane = lanes[i]))
@@ -282,6 +384,20 @@ export default function CalendarGrid({
                         {job.customer?.name ?? job.job_number}
                       </Link>
                     ))}
+
+                    {(shiftsByDate[day] ?? []).map((shift) => (
+                      <Link
+                        key={shift.id}
+                        href="/roster"
+                        className={`block truncate rounded px-1.5 py-0.5 text-xs transition-opacity hover:opacity-80 ${SHIFT_CHIP}`}
+                        title={`${shift.title ?? shift.teamName}${shift.eventName ? ` — ${shift.eventName}` : ''} · ${shift.assignedCount} rostered`}
+                      >
+                        <span className="mr-1 font-medium tabular-nums">
+                          <LocalTime iso={shift.startsAt} format="time" />
+                        </span>
+                        {shift.title ?? shift.teamName}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )
@@ -289,30 +405,31 @@ export default function CalendarGrid({
 
             {bars.length > 0 && (
               <div className="pointer-events-none absolute inset-0 grid grid-cols-7 gap-px">
-                {bars.map((bar) => (
-                  <Link
-                    key={bar.job.id}
-                    href={`/jobs/${bar.job.id}`}
-                    draggable={canSchedule}
-                    onDragStart={(e) => handleDragStart(e, bar.job)}
-                    // self-start is load-bearing: a grid item stretches to fill
-                    // its row by default, so the "bar" was silently filling the
-                    // entire week's height and washing out the days underneath.
-                    className={`pointer-events-auto mx-1.5 block h-[1.375rem] self-start truncate rounded px-1.5 py-0.5 text-xs leading-4 transition-opacity hover:opacity-80 ${STATUS_CHIP[bar.job.status]} ${canSchedule ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                    style={{
-                      gridColumn: `${bar.startCol + 1} / span ${bar.span}`,
-                      marginTop: `${0.375 + bar.lane * BAR_HEIGHT_REM}rem`,
-                    }}
-                    title={`${bar.job.job_number ?? ''} — ${bar.job.customer?.name ?? ''} (${JOB_STATUS_LABELS[bar.job.status]})`}
-                  >
-                    {timeLabel(bar.job.start_time) && (
-                      <span className="mr-1 font-medium tabular-nums">
-                        {timeLabel(bar.job.start_time)}
-                      </span>
-                    )}
-                    {bar.job.customer?.name ?? bar.job.job_number}
-                  </Link>
-                ))}
+                {bars.map((bar) => {
+                  const draggable = canSchedule && bar.job !== null
+                  return (
+                    <Link
+                      key={bar.key}
+                      href={bar.href}
+                      draggable={draggable}
+                      onDragStart={(e) => bar.job && handleDragStart(e, bar.job)}
+                      // self-start is load-bearing: a grid item stretches to fill
+                      // its row by default, so the "bar" was silently filling the
+                      // entire week's height and washing out the days underneath.
+                      className={`pointer-events-auto mx-1.5 block h-[1.375rem] self-start truncate rounded px-1.5 py-0.5 text-xs leading-4 transition-opacity hover:opacity-80 ${bar.className} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      style={{
+                        gridColumn: `${bar.startCol + 1} / span ${bar.span}`,
+                        marginTop: `${0.375 + bar.lane * BAR_HEIGHT_REM}rem`,
+                      }}
+                      title={bar.title}
+                    >
+                      {bar.time && (
+                        <span className="mr-1 font-medium tabular-nums">{bar.time}</span>
+                      )}
+                      {bar.label}
+                    </Link>
+                  )
+                })}
               </div>
             )}
           </div>
