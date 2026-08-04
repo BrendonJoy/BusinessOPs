@@ -92,6 +92,7 @@ export default async function AppLayout({
             reportsModuleEnabled={modules.modules_reports_enabled}
             expensesModuleEnabled={modules.modules_expenses_enabled}
             timesheetsModuleEnabled={modules.modules_timesheets_enabled}
+            eventsModuleEnabled={modules.modules_events_enabled}
           />
         </div>
       </header>

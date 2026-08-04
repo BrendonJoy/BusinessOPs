@@ -21,6 +21,8 @@ export interface Company {
   modules_expenses_enabled: boolean
   modules_reports_enabled: boolean
   modules_timesheets_enabled: boolean
+  /** StaffOps: events, departments and rostering. Off unless switched on. */
+  modules_events_enabled: boolean
   geofence_enabled: boolean
   geofence_radius_meters: number
   workday_enforced: boolean
@@ -107,6 +109,65 @@ export interface StaffPayRate {
   pay_rate: number | null
   pay_type: PayType
   updated_at: string
+}
+
+/**
+ * StaffOps. An event runs over one or more days, and the kind of day changes
+ * how it is staffed: a pack-in needs crew, a show day needs front of house.
+ */
+export const EVENT_DAY_TYPES = ['pack_in', 'event', 'pack_out'] as const
+export type EventDayType = (typeof EVENT_DAY_TYPES)[number]
+
+export const EVENT_DAY_TYPE_LABELS: Record<EventDayType, string> = {
+  pack_in: 'Pack-in',
+  event: 'Event day',
+  pack_out: 'Pack-out',
+}
+
+export interface EventRecord {
+  id: string
+  company_id: string
+  name: string
+  venue: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface EventDay {
+  id: string
+  event_id: string
+  company_id: string
+  day_date: string
+  day_type: EventDayType
+  notes: string | null
+}
+
+export interface Team {
+  id: string
+  company_id: string
+  name: string
+  created_at: string
+}
+
+export type TeamRole = 'manager' | 'staff'
+
+export interface TeamMembership {
+  team_id: string
+  profile_id: string
+  role: TeamRole
+  created_at: string
+}
+
+export interface Shift {
+  id: string
+  company_id: string
+  team_id: string
+  event_day_id: string | null
+  title: string | null
+  starts_at: string
+  ends_at: string
+  notes: string | null
+  created_at: string
 }
 
 export type TimesheetMiscCategory = 'travel' | 'admin' | 'break' | 'other'

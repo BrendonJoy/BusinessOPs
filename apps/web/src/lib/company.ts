@@ -32,6 +32,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
   modules_expenses_enabled: boolean
   modules_reports_enabled: boolean
   modules_timesheets_enabled: boolean
+  modules_events_enabled: boolean
 }> {
   const {
     data: { user },
@@ -43,6 +44,10 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
     modules_expenses_enabled: true,
     modules_reports_enabled: true,
     modules_timesheets_enabled: true,
+    // Off unless a company has turned it on. The other defaults describe
+    // behaviour customers already had; this one would add a product's worth of
+    // screens to an account that never asked for it.
+    modules_events_enabled: false,
   }
 
   if (!user) return defaults
@@ -50,7 +55,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
   const { data } = await supabase
     .from('profiles')
     .select(
-      'company:companies(modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled, modules_reports_enabled, modules_timesheets_enabled)'
+      'company:companies(modules_quotes_enabled, modules_invoicing_enabled, modules_expenses_enabled, modules_reports_enabled, modules_timesheets_enabled, modules_events_enabled)'
     )
     .eq('id', user.id)
     .maybeSingle()
@@ -61,6 +66,7 @@ export async function getCompanyModules(supabase: SupabaseClient): Promise<{
     modules_expenses_enabled: boolean
     modules_reports_enabled: boolean
     modules_timesheets_enabled: boolean
+    modules_events_enabled: boolean
   } | null
 
   return company ?? defaults

@@ -74,12 +74,16 @@ export async function updateCompanyModules(formData: FormData) {
       modules_expenses_enabled: formData.get('modules_expenses_enabled') === 'on',
       modules_reports_enabled: formData.get('modules_reports_enabled') === 'on',
       modules_timesheets_enabled: formData.get('modules_timesheets_enabled') === 'on',
+      modules_events_enabled: formData.get('modules_events_enabled') === 'on',
     })
     .eq('id', companyId)
 
   if (error) errorRedirect(error.message)
 
-  revalidatePath('/settings')
+  // 'layout', not just '/settings': the nav lives in the app layout and reads
+  // these flags, so revalidating the page alone leaves the Events link missing
+  // until the next full load.
+  revalidatePath('/', 'layout')
 }
 
 export async function updateTimesheetSettings(formData: FormData) {

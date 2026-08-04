@@ -8,6 +8,7 @@ import { signOut } from '@/lib/auth/actions'
 const LINKS = [
   { href: '/dashboard', label: 'Dashboard', companyOnly: true },
   { href: '/jobs', label: 'Jobs', companyOnly: false },
+  { href: '/events', label: 'Events', companyOnly: false },
   { href: '/calendar', label: 'Calendar', companyOnly: false },
   { href: '/timesheet', label: 'Timesheet', companyOnly: false },
   { href: '/reports', label: 'Reports', companyOnly: false },
@@ -22,6 +23,7 @@ export default function NavMenu({
   reportsModuleEnabled,
   expensesModuleEnabled,
   timesheetsModuleEnabled,
+  eventsModuleEnabled,
 }: {
   isAdmin: boolean
   role: 'company' | 'staff'
@@ -29,6 +31,7 @@ export default function NavMenu({
   reportsModuleEnabled: boolean
   expensesModuleEnabled: boolean
   timesheetsModuleEnabled: boolean
+  eventsModuleEnabled: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
@@ -38,6 +41,7 @@ export default function NavMenu({
     if (link.href === '/reports') return reportsModuleEnabled && (isCompanyAccount || canViewReports)
     if (link.href === '/expenses') return expensesModuleEnabled && isCompanyAccount
     if (link.href === '/timesheet') return timesheetsModuleEnabled
+    if (link.href === '/events') return eventsModuleEnabled
     return isCompanyAccount || !link.companyOnly
   })
   const allLinks = isAdmin ? [...visibleLinks, { href: '/admin/feedback', label: 'Admin' }] : visibleLinks

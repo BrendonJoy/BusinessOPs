@@ -25,6 +25,14 @@ import {
 } from './team-actions'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import PayFields from './PayFields'
+import {
+  addTeamMember,
+  createTeam,
+  deleteTeam,
+  removeTeamMember,
+  renameTeam,
+  updateTeamMemberRole,
+} from './department-actions'
 import FileUploadButtons from '@/components/FileUploadButtons'
 import {
   Button,
@@ -105,6 +113,22 @@ export default async function SettingsPage({
         },
       ])
     )
+  }
+
+  // Departments only matter once the events module is on — they exist to scope
+  // rostering and pay-rate visibility, neither of which BusinessOps has.
+  const eventsEnabled = company?.modules_events_enabled ?? false
+
+  let departments: { id: string; name: string }[] = []
+  let memberships: { team_id: string; profile_id: string; role: 'manager' | 'staff' }[] = []
+
+  if (isCompany && eventsEnabled) {
+    const [{ data: teamsData }, { data: membershipData }] = await Promise.all([
+      supabase.from('teams').select('id, name').eq('company_id', profile.company_id).order('name'),
+      supabase.from('team_memberships').select('team_id, profile_id, role'),
+    ])
+    departments = (teamsData ?? []) as { id: string; name: string }[]
+    memberships = (membershipData ?? []) as typeof memberships
   }
 
   const companyMember = team.find((m) => m.role === 'company')
@@ -386,6 +410,15 @@ export default async function SettingsPage({
                 className={checkboxClasses()}
               />
               Timesheets
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name="modules_events_enabled"
+                defaultChecked={company?.modules_events_enabled ?? false}
+                className={checkboxClasses()}
+              />
+              Events &amp; rostering
             </label>
           </div>
           <button
@@ -677,6 +710,57 @@ export default async function SettingsPage({
         </form>
       </section>
 
+      {isCompany && eventsEnabled && (
+      <section className={cardClasses()}>
+        <h2 className="mb-1 text-sm font-medium">Departments</h2>
+        <p className="mb-4 text-sm text-muted">
+          Departments are how rostering is divided up. A manager schedules their own department and
+          can see its pay rates; they can&apos;t see another department&apos;s. People can belong to
+          more than one.
+        </p>
+
+        {departments.length === 0 ? (
+          <EmptyState
+            title="No departments yet"
+            description="Add one below — catering, operations, bar. You'll pick a department for every shift you create."
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {departments.map((dept) => {
+              const members = memberships.filter((m) => m.team_id === dept.id)
+              const memberIds = new Set(members.map((m) => m.profile_id))
+              const available = team.filter((p) => !memberIds.has(p.id))
+
+              return (
+                <DepartmentEditor
+                  key={dept.id}
+                  department={dept}
+                  members={members.map((m) => ({
+                    ...m,
+                    name: team.find((p) => p.id === m.profile_id)?.full_name ?? 'Unknown',
+                    email: team.find((p) => p.id === m.profile_id)?.email ?? '',
+                  }))}
+                  available={available.map((p) => ({
+                    id: p.id,
+                    label: p.full_name ?? p.email,
+                  }))}
+                />
+              )
+            })}
+          </div>
+        )}
+
+        <form action={createTeam} className="mt-4 flex flex-col gap-3 border-t border-surface-border pt-4 sm:flex-row sm:items-end">
+          <Field label="New department" htmlFor="new_department" className="sm:flex-1">
+            <Input id="new_department" name="name" type="text" placeholder="Catering" required />
+          </Field>
+          <Button type="submit" className="w-full sm:w-auto">
+            Add department
+          </Button>
+        </form>
+      </section>
+      )}
+
       {isCompany && (
       <section className={cardClasses()}>
         <h2 className="mb-1 text-sm font-medium">Your data</h2>
@@ -712,6 +796,142 @@ export default async function SettingsPage({
           </Button>
         </form>
       </section>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One department: its name, who is in it, and which of them manage it.
+ *
+ * Manager is set here rather than on the person, because it is a per-department
+ * fact — someone can run catering while being ordinary staff in operations, and
+ * the company account can manage a department without that changing what it is.
+ */
+function DepartmentEditor({
+  department,
+  members,
+  available,
+}: {
+  department: { id: string; name: string }
+  members: { profile_id: string; role: 'manager' | 'staff'; name: string; email: string }[]
+  available: { id: string; label: string }[]
+}) {
+  // Managers first, then alphabetical — the person who rosters is who you look
+  // for when scanning a department.
+  const ordered = [...members].sort((a, b) =>
+    a.role === b.role ? a.name.localeCompare(b.name) : a.role === 'manager' ? -1 : 1
+  )
+
+  return (
+    <div className="rounded-lg border border-surface-border p-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <form action={renameTeam.bind(null, department.id)} className="flex items-end gap-2">
+          <Field label="Department" htmlFor={`team_name-${department.id}`}>
+            <Input
+              id={`team_name-${department.id}`}
+              name="name"
+              type="text"
+              defaultValue={department.name}
+              className="sm:w-56"
+            />
+          </Field>
+          <Button type="submit" size="sm">
+            Rename
+          </Button>
+        </form>
+
+        <ConfirmSubmitButton
+          action={deleteTeam.bind(null, department.id)}
+          confirmMessage={`Delete the ${department.name} department? Its members stay in the company; only the department goes.`}
+          className="pb-2 text-xs text-muted hover:text-accent"
+        >
+          Delete department
+        </ConfirmSubmitButton>
+      </div>
+
+      {ordered.length === 0 ? (
+        <p className="mt-3 text-xs text-muted">Nobody in this department yet.</p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-2">
+          {ordered.map((member) => (
+            <li
+              key={member.profile_id}
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-border pt-2 text-sm"
+            >
+              <span>
+                {member.name}
+                {member.role === 'manager' && (
+                  <span className="ml-2 rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-xs font-medium">
+                    Manager
+                  </span>
+                )}
+              </span>
+
+              <span className="flex items-center gap-2">
+                <form
+                  action={updateTeamMemberRole.bind(null, department.id, member.profile_id)}
+                  className="flex items-center gap-1.5"
+                >
+                  <Select
+                    name="role"
+                    defaultValue={member.role}
+                    aria-label={`Role for ${member.name}`}
+                    fullWidth={false}
+                    size="sm"
+                    className="w-28"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                  </Select>
+                  <Button type="submit" size="sm">
+                    Save
+                  </Button>
+                </form>
+
+                <ConfirmSubmitButton
+                  action={removeTeamMember.bind(null, department.id, member.profile_id)}
+                  confirmMessage={`Remove ${member.name} from ${department.name}? They stay in the company and keep any other departments.`}
+                  className="text-xs text-muted hover:text-accent"
+                >
+                  Remove
+                </ConfirmSubmitButton>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {available.length > 0 && (
+        <form
+          action={addTeamMember.bind(null, department.id)}
+          className="mt-3 flex flex-wrap items-end gap-2 border-t border-surface-border pt-3"
+        >
+          <Field label="Add someone" htmlFor={`add_member-${department.id}`}>
+            <Select
+              id={`add_member-${department.id}`}
+              name="profile_id"
+              fullWidth={false}
+              size="sm"
+              className="w-56"
+            >
+              {available.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="As" htmlFor={`add_role-${department.id}`}>
+            <Select id={`add_role-${department.id}`} name="role" fullWidth={false} size="sm" className="w-28">
+              <option value="staff">Staff</option>
+              <option value="manager">Manager</option>
+            </Select>
+          </Field>
+          <Button type="submit" size="sm">
+            Add
+          </Button>
+        </form>
       )}
     </div>
   )
