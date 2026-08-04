@@ -92,6 +92,100 @@ export async function getRosterContext(supabase: SupabaseClient): Promise<Roster
   }
 }
 
+export type ClockableShift = {
+  id: string
+  title: string | null
+  teamName: string
+  eventName: string | null
+  startsAt: string
+  endsAt: string
+}
+
+/**
+ * The shifts this person could plausibly be clocking on to right now.
+ *
+ * Only shifts they are actually rostered on: being able to *see* a department's
+ * roster is not permission to clock in against someone else's shift, and the
+ * clock-in action re-checks this rather than trusting the list.
+ *
+ * The window is deliberately wide — twelve hours either side — because people
+ * arrive early for a pack-in and clock out well after midnight on a pack-out.
+ * Narrower and the shift they want vanishes from the list exactly when they are
+ * standing in the rain trying to start.
+ */
+export async function getClockableShifts(
+  supabase: SupabaseClient,
+  profileId: string
+): Promise<ClockableShift[]> {
+  const now = Date.now()
+  const from = new Date(now - 12 * 60 * 60 * 1000).toISOString()
+  const to = new Date(now + 12 * 60 * 60 * 1000).toISOString()
+
+  const { data: assignmentData } = await supabase
+    .from('shift_assignments')
+    .select('shift_id')
+    .eq('profile_id', profileId)
+
+  const shiftIds = ((assignmentData ?? []) as { shift_id: string }[]).map((a) => a.shift_id)
+  if (shiftIds.length === 0) return []
+
+  const { data: shiftData } = await supabase
+    .from('shifts')
+    .select('id, team_id, event_day_id, title, starts_at, ends_at')
+    .in('id', shiftIds)
+    .lte('starts_at', to)
+    .gte('ends_at', from)
+    .order('starts_at')
+
+  const shifts = (shiftData ?? []) as {
+    id: string
+    team_id: string
+    event_day_id: string | null
+    title: string | null
+    starts_at: string
+    ends_at: string
+  }[]
+
+  if (shifts.length === 0) return []
+
+  const dayIds = [...new Set(shifts.map((s) => s.event_day_id).filter((id): id is string => Boolean(id)))]
+
+  const [{ data: teamsData }, { data: daysData }] = await Promise.all([
+    supabase.from('teams').select('id, name'),
+    dayIds.length
+      ? supabase.from('event_days').select('id, event_id').in('id', dayIds)
+      : Promise.resolve({ data: [] as { id: string; event_id: string }[] }),
+  ])
+
+  const days = (daysData ?? []) as { id: string; event_id: string }[]
+  const eventIds = [...new Set(days.map((d) => d.event_id))]
+
+  const { data: eventsData } = eventIds.length
+    ? await supabase.from('events').select('id, name').in('id', eventIds)
+    : { data: [] }
+
+  const teamName = new Map(
+    ((teamsData ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name])
+  )
+  const eventNameByDay = new Map<string, string>()
+  const eventName = new Map(
+    ((eventsData ?? []) as { id: string; name: string }[]).map((e) => [e.id, e.name])
+  )
+  for (const day of days) {
+    const name = eventName.get(day.event_id)
+    if (name) eventNameByDay.set(day.id, name)
+  }
+
+  return shifts.map((shift) => ({
+    id: shift.id,
+    title: shift.title,
+    teamName: teamName.get(shift.team_id) ?? 'Department',
+    eventName: shift.event_day_id ? (eventNameByDay.get(shift.event_day_id) ?? null) : null,
+    startsAt: shift.starts_at,
+    endsAt: shift.ends_at,
+  }))
+}
+
 /**
  * Shifts for a set of event days, with who is on them.
  *

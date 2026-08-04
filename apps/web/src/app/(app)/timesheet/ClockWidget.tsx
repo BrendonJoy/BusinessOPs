@@ -6,6 +6,31 @@ import { Button, Card, Field, Input, Select, cardClasses } from '@/components/ui
 
 type JobOption = { id: string; job_number: string | null; customerName: string | null }
 
+export type ShiftOption = {
+  id: string
+  title: string | null
+  teamName: string
+  eventName: string | null
+  startsAt: string
+  endsAt: string
+}
+
+/**
+ * "Bar · Winter Gala · 18:00–02:00". Built in the browser so the times are in
+ * the viewer's zone rather than the server's — the same reason LocalTime
+ * exists. Someone picking a shift at 5:55am needs the label to match the clock
+ * on the wall.
+ */
+function shiftLabel(shift: ShiftOption): string {
+  const time = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+  const parts = [shift.title || shift.teamName]
+  if (shift.eventName) parts.push(shift.eventName)
+  parts.push(`${time(shift.startsAt)}–${time(shift.endsAt)}`)
+  return parts.join(' · ')
+}
+
 function nowHHMM(): string {
   const now = new Date()
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
@@ -24,6 +49,7 @@ function minutesAheadHHMM(minutes: number): string {
 export default function ClockWidget({
   openEntry,
   jobs,
+  shifts = [],
   geofenceEnabled,
   clockInAction,
   clockOutAction,
@@ -34,13 +60,32 @@ export default function ClockWidget({
     clockInTime: string
   } | null
   jobs: JobOption[]
+  shifts?: ShiftOption[]
   geofenceEnabled: boolean
   clockInAction: (formData: FormData) => void
   clockOutAction: (formData: FormData) => void
 }) {
-  const [target, setTarget] = useState(jobs.length > 0 ? `job:${jobs[0].id}` : `misc:${TIMESHEET_MISC_CATEGORIES[0]}`)
-  const [startTime, setStartTime] = useState(nowHHMM())
-  const [finishTime, setFinishTime] = useState(nowHHMM())
+  // Rostered shifts win the default. Someone opening this at a venue is almost
+  // always about to start the shift they were put on, and making that the first
+  // option saves the one interaction that matters when you are already late.
+  const [target, setTarget] = useState(
+    shifts.length > 0
+      ? `shift:${shifts[0].id}`
+      : jobs.length > 0
+        ? `job:${jobs[0].id}`
+        : `misc:${TIMESHEET_MISC_CATEGORIES[0]}`
+  )
+  // Held as "has the person typed a time themselves?" rather than as a value,
+  // because an untouched field has to mean *now* on every render, not the
+  // moment the widget mounted.
+  //
+  // It used to hold the mount-time value while `min`/`max` were recomputed on
+  // each render. One minute later `min` had moved past the stale value, the
+  // browser marked the field rangeUnderflow, and `Clock out` silently stopped
+  // submitting — a dead button with no message, on the one interaction someone
+  // performs while wanting to go home.
+  const [startTime, setStartTime] = useState<string | null>(null)
+  const [finishTime, setFinishTime] = useState<string | null>(null)
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -56,9 +101,10 @@ export default function ClockWidget({
     )
   }, [geofenceEnabled])
 
-  const isJobTarget = target.startsWith('job:')
-  const jobId = isJobTarget ? target.slice(4) : ''
-  const miscCategory = isJobTarget ? '' : target.slice(5)
+  const [kind, value] = [target.slice(0, target.indexOf(':')), target.slice(target.indexOf(':') + 1)]
+  const jobId = kind === 'job' ? value : ''
+  const shiftId = kind === 'shift' ? value : ''
+  const miscCategory = kind === 'misc' ? value : ''
 
   if (openEntry) {
     return (
@@ -75,7 +121,7 @@ export default function ClockWidget({
               id="finish_time"
               name="finish_time"
               type="time"
-              value={finishTime}
+              value={finishTime ?? nowHHMM()}
               min={nowHHMM()}
               max={minutesAheadHHMM(15)}
               onChange={(e) => setFinishTime(e.target.value)}
@@ -94,6 +140,7 @@ export default function ClockWidget({
   return (
     <form action={clockInAction} className={cardClasses()}>
       <input type="hidden" name="job_id" value={jobId} />
+      <input type="hidden" name="shift_id" value={shiftId} />
       <input type="hidden" name="misc_category" value={miscCategory} />
       <input type="hidden" name="lat" value={lat ?? ''} />
       <input type="hidden" name="lng" value={lng ?? ''} />
@@ -106,6 +153,15 @@ export default function ClockWidget({
             onChange={(e) => setTarget(e.target.value)}
             fullWidth
           >
+            {shifts.length > 0 && (
+              <optgroup label="Your shifts">
+                {shifts.map((shift) => (
+                  <option key={shift.id} value={`shift:${shift.id}`}>
+                    {shiftLabel(shift)}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             {jobs.length > 0 && (
               <optgroup label="Jobs">
                 {jobs.map((job) => (
@@ -130,7 +186,7 @@ export default function ClockWidget({
             id="start_time"
             name="start_time"
             type="time"
-            value={startTime}
+            value={startTime ?? nowHHMM()}
             min={minutesAgoHHMM(15)}
             max={nowHHMM()}
             onChange={(e) => setStartTime(e.target.value)}

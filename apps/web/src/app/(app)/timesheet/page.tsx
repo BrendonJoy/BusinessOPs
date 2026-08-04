@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules, getTimesheetSettings } from '@/lib/company'
+import { getClockableShifts } from '@/lib/roster'
 import { formatDayLabel } from '@/lib/dates'
 import { Card, EmptyState } from '@/components/ui'
 import { JOB_STATUS_GROUPS, TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
@@ -10,22 +11,56 @@ import ClockWidget from './ClockWidget'
 import SubmitDayButton from './SubmitDayButton'
 import { clockIn, clockOut, submitDay } from './actions'
 
+type ShiftRef = { title: string | null; team: { name: string | null } | null } | null
+
 type OpenEntryRow = {
   id: string
   job_id: string | null
+  shift_id: string | null
   misc_category: TimesheetMiscCategory | null
   clock_in: string
   job: { job_number: string | null; customer: { name: string | null } | null } | null
+  shift: ShiftRef
 }
 
 type HistoryRow = {
   id: string
   job_id: string | null
+  shift_id: string | null
   misc_category: TimesheetMiscCategory | null
   clock_in: string
   clock_out: string | null
   day_id: string | null
   job: { job_number: string | null } | null
+  shift: ShiftRef
+}
+
+/**
+ * What an entry was worked against.
+ *
+ * The misc branch is last and guarded. Before shifts existed, "not a job" meant
+ * "a misc category", so the label was read straight out of the map with a
+ * non-null assertion — a shift entry would have rendered `undefined`.
+ */
+function entryLabel(entry: {
+  job_id: string | null
+  shift_id: string | null
+  misc_category: TimesheetMiscCategory | null
+  job?: { job_number: string | null; customer?: { name: string | null } | null } | null
+  shift?: ShiftRef
+}): string {
+  if (entry.job_id) {
+    const customer = entry.job?.customer?.name
+    return customer
+      ? `${entry.job?.job_number ?? 'Job'} — ${customer}`
+      : (entry.job?.job_number ?? 'Job')
+  }
+
+  if (entry.shift_id) {
+    return entry.shift?.title || entry.shift?.team?.name || 'Shift'
+  }
+
+  return entry.misc_category ? TIMESHEET_MISC_CATEGORY_LABELS[entry.misc_category] : 'Work'
 }
 
 type DayRow = { id: string; work_date: string; status: TimesheetDayStatus }
@@ -62,7 +97,9 @@ export default async function TimesheetPage({
 
   const { data: openEntryData } = await supabase
     .from('timesheet_entries')
-    .select('id, job_id, misc_category, clock_in, job:jobs(job_number, customer:customers(name))')
+    .select(
+      'id, job_id, shift_id, misc_category, clock_in, job:jobs(job_number, customer:customers(name)), shift:shifts(title, team:teams(name))'
+    )
     .eq('profile_id', profile.id)
     .is('clock_out', null)
     .maybeSingle()
@@ -72,12 +109,17 @@ export default async function TimesheetPage({
   const openEntry = openEntryRow
     ? {
         id: openEntryRow.id,
-        label: openEntryRow.job_id
-          ? `${openEntryRow.job?.job_number ?? 'Job'} — ${openEntryRow.job?.customer?.name ?? 'Customer'}`
-          : TIMESHEET_MISC_CATEGORY_LABELS[openEntryRow.misc_category!],
+        label: entryLabel(openEntryRow),
         clockInTime: formatTime(openEntryRow.clock_in),
       }
     : null
+
+  // Shifts are only offered where the module is on; the rest of the page works
+  // exactly as before for a BusinessOps company.
+  const { modules_events_enabled } = await getCompanyModules(supabase)
+  const clockableShifts = modules_events_enabled
+    ? await getClockableShifts(supabase, profile.id)
+    : []
 
   // Staff without view-all only get jobs they're assigned to (inner join on
   // the job_assignments membership table).
@@ -110,7 +152,9 @@ export default async function TimesheetPage({
   const [{ data: historyData }, { data: daysData }] = await Promise.all([
     supabase
       .from('timesheet_entries')
-      .select('id, job_id, misc_category, clock_in, clock_out, day_id, job:jobs(job_number)')
+      .select(
+        'id, job_id, shift_id, misc_category, clock_in, clock_out, day_id, job:jobs(job_number), shift:shifts(title, team:teams(name))'
+      )
       .eq('profile_id', profile.id)
       .gte('clock_in', historyStart.toISOString())
       .order('clock_in', { ascending: false }),
@@ -169,6 +213,7 @@ export default async function TimesheetPage({
       <ClockWidget
         openEntry={openEntry}
         jobs={jobs}
+        shifts={clockableShifts}
         geofenceEnabled={settings.geofence_enabled}
         clockInAction={boundClockIn}
         clockOutAction={boundClockOut}
@@ -196,11 +241,7 @@ export default async function TimesheetPage({
                   <ul className="flex flex-col gap-1 text-sm">
                     {group.entries.map((entry) => (
                       <li key={entry.id} className="flex items-center justify-between gap-4">
-                        <span>
-                          {entry.job_id
-                            ? (entry.job?.job_number ?? 'Job')
-                            : TIMESHEET_MISC_CATEGORY_LABELS[entry.misc_category!]}
-                        </span>
+                        <span>{entryLabel(entry)}</span>
                         <span className="text-muted">
                           {formatTime(entry.clock_in)}
                           {entry.clock_out ? ` – ${formatTime(entry.clock_out)}` : ' (in progress)'}

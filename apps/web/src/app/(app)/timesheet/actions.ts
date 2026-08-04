@@ -73,6 +73,7 @@ export async function clockIn(formData: FormData) {
   if (!profile) redirect('/login')
 
   const jobId = String(formData.get('job_id') ?? '').trim() || null
+  const shiftId = String(formData.get('shift_id') ?? '').trim() || null
   const miscCategoryRaw = String(formData.get('misc_category') ?? '').trim() || null
   const startTimeRaw = String(formData.get('start_time') ?? '')
   const latRaw = formData.get('lat')
@@ -80,10 +81,26 @@ export async function clockIn(formData: FormData) {
   const lat = latRaw ? Number(latRaw) : null
   const lng = lngRaw ? Number(lngRaw) : null
 
-  if (!jobId && !miscCategoryRaw) errorRedirect('Choose a job or category to clock in against.')
-  if (jobId && miscCategoryRaw) errorRedirect('Choose only one of a job or a category.')
+  const targetCount = [jobId, shiftId, miscCategoryRaw].filter(Boolean).length
+  if (targetCount === 0) errorRedirect('Choose a shift, job or category to clock in against.')
+  if (targetCount > 1) errorRedirect('Choose only one thing to clock in against.')
+
   if (miscCategoryRaw && !TIMESHEET_MISC_CATEGORIES.includes(miscCategoryRaw as TimesheetMiscCategory)) {
     errorRedirect('Invalid category.')
+  }
+
+  // Seeing a department's roster is not permission to clock in against someone
+  // else's shift, so the assignment is re-checked here rather than trusting the
+  // list the form was built from.
+  if (shiftId) {
+    const { data: assignment } = await supabase
+      .from('shift_assignments')
+      .select('shift_id')
+      .eq('shift_id', shiftId)
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+
+    if (!assignment) errorRedirect("You're not rostered on that shift.")
   }
 
   const startTime = parseHHMM(startTimeRaw)
@@ -99,7 +116,11 @@ export async function clockIn(formData: FormData) {
   }
 
   const settings = await getTimesheetSettings(supabase)
-  checkWorkday(settings, clockInDate, 'Start time')
+
+  // Company work-day hours describe a trades business's normal day. A rostered
+  // shift IS the schedule — a pack-in at 5am or a pack-out past midnight is the
+  // plan, not an exception — so the check only applies to job and misc entries.
+  if (!shiftId) checkWorkday(settings, clockInDate, 'Start time')
 
   // A submitted day is locked -- no more entries can be added to it.
   const { data: existingDay } = await supabase
@@ -113,6 +134,9 @@ export async function clockIn(formData: FormData) {
     errorRedirect('This day has already been submitted for approval.')
   }
 
+  // Geofencing checks against a job's geocoded address. A shift has no address
+  // of its own — the event's venue is free text, not coordinates — so there is
+  // nothing to fence against yet. Worth revisiting if venues get geocoded.
   if (jobId) {
     await checkGeofence(supabase, settings, jobId, lat, lng)
   }
@@ -123,6 +147,7 @@ export async function clockIn(formData: FormData) {
     company_id: profile.company_id,
     profile_id: profile.id,
     job_id: jobId,
+    shift_id: shiftId,
     misc_category: miscCategoryRaw as TimesheetMiscCategory | null,
     clock_in: clockInDate.toISOString(),
   })
@@ -133,6 +158,10 @@ export async function clockIn(formData: FormData) {
   }
 
   revalidatePath('/timesheet')
+  // Clears any ?error left over from a previous attempt. Without it the old
+  // message sits above the new state — "outside work hours" printed directly
+  // over "Clocked in to Bar".
+  redirect('/timesheet')
 }
 
 export async function clockOut(entryId: string, formData: FormData) {
@@ -163,13 +192,17 @@ export async function clockOut(entryId: string, formData: FormData) {
   }
 
   const settings = await getTimesheetSettings(supabase)
-  checkWorkday(settings, clockOutDate, 'Finish time')
 
   const { data: entry } = await supabase
     .from('timesheet_entries')
-    .select('job_id')
+    .select('job_id, shift_id')
     .eq('id', entryId)
     .maybeSingle()
+
+  // Same reasoning as clock-in: a shift is its own schedule. The RPC skips this
+  // check for shift entries too (migration 0037), so refusing here would only
+  // strand someone with an open entry at 2am.
+  if (!entry?.shift_id) checkWorkday(settings, clockOutDate, 'Finish time')
 
   if (entry?.job_id) {
     await checkGeofence(supabase, settings, entry.job_id, lat, lng)
@@ -184,6 +217,7 @@ export async function clockOut(entryId: string, formData: FormData) {
 
   revalidatePath('/timesheet')
   if (entry?.job_id) revalidatePath(`/jobs/${entry.job_id}`)
+  redirect('/timesheet')
 }
 
 export async function submitDay(formData: FormData) {

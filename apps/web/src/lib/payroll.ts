@@ -108,12 +108,14 @@ type EntryRow = {
   id: string
   profile_id: string
   job_id: string | null
+  shift_id: string | null
   misc_category: TimesheetMiscCategory | null
   clock_in: string
   clock_out: string | null
   day_id: string | null
   profile: { full_name: string | null; email: string } | null
   job: { job_number: string | null } | null
+  shift: { title: string | null; team: { name: string | null } | null } | null
 }
 
 type DayRow = { id: string; profile_id: string; work_date: string; status: TimesheetDayStatus }
@@ -140,7 +142,7 @@ export async function getPayrollReport(
     supabase
       .from('timesheet_entries')
       .select(
-        'id, profile_id, job_id, misc_category, clock_in, clock_out, day_id, profile:profiles(full_name, email), job:jobs(job_number)'
+        'id, profile_id, job_id, shift_id, misc_category, clock_in, clock_out, day_id, profile:profiles(full_name, email), job:jobs(job_number), shift:shifts(title, team:teams(name))'
       )
       .gte('clock_in', `${addDays(from, -1)}T00:00:00`)
       .lte('clock_in', `${addDays(to, 1)}T23:59:59`)
@@ -201,9 +203,16 @@ export async function getPayrollReport(
       workDate,
       clockIn: entry.clock_in,
       clockOut: entry.clock_out,
+      // Shift entries have neither a job nor a misc category. Reading the
+      // category map without checking rendered `undefined` in the payroll
+      // export — a blank cell in the document someone gets paid from.
       target: entry.job_id
         ? (entry.job?.job_number ?? 'Job')
-        : TIMESHEET_MISC_CATEGORY_LABELS[entry.misc_category!],
+        : entry.shift_id
+          ? entry.shift?.title || entry.shift?.team?.name || 'Shift'
+          : entry.misc_category
+            ? TIMESHEET_MISC_CATEGORY_LABELS[entry.misc_category]
+            : 'Work',
       hours,
       dayStatus,
     })
