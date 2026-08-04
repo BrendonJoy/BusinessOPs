@@ -34,6 +34,14 @@ const EXPORTED_TABLES = [
   'chat_messages',
   'feedback_messages',
   'policy_acceptances',
+  // StaffOps. Added with the schema rather than afterwards — an export that
+  // silently omits a product's data is worse than one that fails loudly.
+  'teams',
+  'team_memberships',
+  'events',
+  'event_days',
+  'shifts',
+  'shift_assignments',
 ] as const
 
 export type AccountExport = {
