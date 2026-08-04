@@ -176,11 +176,21 @@ environment file still referenced the old project.
 - [x] Delete the old Supabase project — **2026-08-04**
 - [x] **Deletion date recorded** — in `COMPLIANCE_LOG.md`, which is where a
       regulator or a customer's due-diligence questionnaire would look
-- [ ] Rotate the London database password (it was shared in a chat transcript
-      during the migration) — **still outstanding**
-- [ ] Delete `apps/web/.env.local.mumbai-backup` — holds the deleted project's
-      service-role key; useless now, but should not linger
-- [ ] `C:\JOYTECH\open-me-to-set-password.html` — delete if still present
+- [x] Rotate the London database password — **2026-08-04**. Verified afterwards
+      by connecting through `MIGRATION_DB_URL` and running a read-only query.
+      Note: this password is used *only* by that file. The app reaches Postgres
+      through Supabase's API using the anon and service-role keys, which are
+      separate credentials and unaffected — so rotating it needs no Vercel
+      change, no redeploy and causes no downtime.
+- [x] Delete `apps/web/.env.local.mumbai-backup` — **2026-08-04**. Held the
+      deleted project's service-role key plus duplicates of the live Anthropic,
+      Resend, Google Maps and cron secrets. Checked first that it referenced
+      only the deleted project and that no key in it was missing from
+      `.env.local`. It was gitignored and never tracked.
+- [ ] `C:\JOYTECH\open-me-to-set-password.html` — still present. Contains a
+      recovery link with an embedded refresh token, but it is inert: the access
+      token expired 2026-08-02 and the refresh token no longer exists in
+      `auth.refresh_tokens`. Delete as housekeeping.
 - [ ] Confirm custom SMTP and the `{{ .Token }}` reset template are still set on London
 
 **Deliberately NOT deleted:** `apps/web/.env.migration.local`. The original
