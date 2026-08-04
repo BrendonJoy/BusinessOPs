@@ -194,13 +194,64 @@ asks; recorded as an open item rather than built.
 
 ---
 
+## 2026-08-04 — Privacy notice published, acceptance recorded against a version
+
+**Was:** no privacy notice existed, and nothing recorded what anyone had agreed
+to.
+
+**Now:** `/legal/privacy` states what is held, why, where, who else touches it,
+how long it is kept and how to get it back or delete it. Signing up and
+accepting a team invite both require ticking an unticked box, and the version
+accepted is written to `policy_acceptances` (migration 0033).
+
+**It is acceptance, not consent, and the distinction is deliberate.** For a B2B
+tool the lawful basis for processing is performance of a contract, not consent.
+Consent under UK GDPR must be as easy to withdraw as it is to give, so labelling
+contract acceptance "consent" would arm a customer to withdraw it while
+continuing to use the product, with no coherent answer available to us.
+
+**Design points worth keeping:**
+
+- The record is written by `handle_new_user`, which is security definer. Email
+  confirmation means there is no session immediately after signing up, so
+  nothing is authenticated that could write the row under RLS; the version rides
+  in on user metadata. `policy_acceptances` has a select-own policy and **no
+  insert policy at all** — an acceptance record its own subject can create or
+  edit is not evidence of anything.
+- Append-only. Reissuing a document bumps the version and writes a new row;
+  the old row stays, because "what did this customer agree to in 2026" is a
+  question only the historical record answers.
+- **Staff accept for themselves** at invite acceptance rather than having their
+  employer accept on their behalf. Timesheets, pay rates and an audit log of
+  their work are their personal data.
+- The page imports the retention periods and grace period from the code that
+  enforces them, so the stated policy cannot drift from the behaviour.
+
+**Terms of service are deliberately NOT wired up.** `policy_acceptances` accepts
+a 'terms' document and the trigger already records one if a version is supplied,
+so adding them later is a form field and a constant — no migration. They are
+absent because there is no terms text yet, and recording that someone accepted a
+document which does not exist would be a false record rather than a missing one.
+
+**⚠ The privacy notice has not been reviewed by a lawyer.** It is accurate as a
+description of the system — every claim in it was checked against the code — but
+accuracy and legal sufficiency are different things. It should go to the lawyer
+with the terms.
+
+**Verified:** the box is unticked by default and required; stripping the browser
+validation and submitting unticked is rejected server-side with no account
+created; accepting writes exactly one row with the current version; the notice
+is readable without signing in.
+
+---
+
 ## Known outstanding
 
 Not yet addressed. Recorded so the gaps are explicit rather than forgotten:
 
-- Signup acceptance capture, with a versioned record of which terms and privacy notice were accepted and when
+- Terms of service — no text exists yet, so nothing is presented or recorded. The mechanism is ready; it needs the document.
+- Legal review of the privacy notice, and of the terms once drafted, before paying customers
 - No erasure log survives a deletion — the cron's response in the platform logs is currently the only evidence that an account was erased and on what date
-- Terms and privacy pages (drafting last, after the behaviour they describe is settled — needs legal review)
 - A data processing agreement for business customers — required once a customer company's staff data is processed on their behalf, and likely to be asked for by the first real customer
 - `feedback_messages` has no retention period. Same category as the two now purged (no statutory floor), left out only because it was not part of the agreed scope — worth a decision.
 - Anthropic's API retention and model-training position is not yet confirmed in writing (`SUBPROCESSORS.md`)

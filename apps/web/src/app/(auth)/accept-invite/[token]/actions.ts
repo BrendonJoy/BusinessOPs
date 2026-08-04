@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { setPendingConfirmationEmail } from '@/lib/pending-confirmation'
 import { readableAuthError } from '@/lib/auth-errors'
+import { PRIVACY_NOTICE_VERSION } from '@/lib/policies'
 
 type InviteLookup = {
   email: string
@@ -26,11 +27,17 @@ export async function acceptInvite(token: string, formData: FormData) {
     redirect(`/accept-invite/${token}?error=${encodeURIComponent('This invite is no longer valid.')}`)
   }
 
+  if (formData.get('accept_privacy') !== 'on') {
+    redirect(
+      `/accept-invite/${token}?error=${encodeURIComponent('Please confirm you have read the privacy notice.')}`
+    )
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email: invite.email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { full_name: fullName, accepted_privacy_version: PRIVACY_NOTICE_VERSION },
     },
   })
 

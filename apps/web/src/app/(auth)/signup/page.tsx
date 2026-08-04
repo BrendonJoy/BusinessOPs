@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Button, Field, Input, Notice } from '@/components/ui'
+import { Button, Field, Input, Notice, checkboxClasses } from '@/components/ui'
+import { POLICY_PATHS } from '@/lib/policies'
 import { signup } from './actions'
 
 export default async function SignupPage({
@@ -40,6 +41,30 @@ export default async function SignupPage({
             autoComplete="new-password"
           />
         </Field>
+        {/* Unticked by default and required. A pre-ticked box is not agreement,
+            and the whole point of the acceptance record is that it means
+            something. Opens in a new tab so a half-filled form is not lost. */}
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="accept_privacy"
+            required
+            className={checkboxClasses('mt-0.5')}
+          />
+          <span>
+            I have read the{' '}
+            <Link
+              href={POLICY_PATHS.privacy}
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-accent"
+            >
+              privacy notice
+            </Link>{' '}
+            and understand how BusinessOps handles my data.
+          </span>
+        </label>
+
         <Button type="submit" variant="primary" className="mt-2">
           Sign up
         </Button>

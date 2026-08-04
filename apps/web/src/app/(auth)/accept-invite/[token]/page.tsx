@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Button, Field, Input, Notice } from '@/components/ui'
+import { Button, Field, Input, Notice, checkboxClasses } from '@/components/ui'
+import { POLICY_PATHS } from '@/lib/policies'
 import { acceptInvite } from './actions'
 
 type InviteLookup = {
@@ -74,6 +76,31 @@ export default async function AcceptInvitePage({
             autoComplete="new-password"
           />
         </Field>
+        {/* Staff are data subjects in their own right — timesheets, pay rates
+            and an audit log of their work are all about them — so they read and
+            accept the notice themselves rather than having their employer
+            accept on their behalf. */}
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="accept_privacy"
+            required
+            className={checkboxClasses('mt-0.5')}
+          />
+          <span>
+            I have read the{' '}
+            <Link
+              href={POLICY_PATHS.privacy}
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-accent"
+            >
+              privacy notice
+            </Link>{' '}
+            and understand how BusinessOps handles my data.
+          </span>
+        </label>
+
         <Button type="submit" variant="primary" className="mt-2">
           Join {invite.company_name}
         </Button>

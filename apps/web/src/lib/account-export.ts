@@ -33,6 +33,7 @@ const EXPORTED_TABLES = [
   'payroll_periods',
   'chat_messages',
   'feedback_messages',
+  'policy_acceptances',
 ] as const
 
 export type AccountExport = {

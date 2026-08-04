@@ -5,6 +5,9 @@ import { buildContentSecurityPolicy } from '@/lib/csp'
 const AUTH_PATHS = ['/login', '/signup', '/forgot-password', '/check-email']
 const PUBLIC_PATHS = [
   '/q',
+  // Has to be readable before signing up — the signup form links to it, and
+  // "agree to something you cannot read without an account" is not agreement.
+  '/legal',
   '/api/calendar',
   '/api/cron',
   '/reset-password',
