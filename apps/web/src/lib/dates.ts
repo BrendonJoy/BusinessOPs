@@ -40,6 +40,18 @@ export function formatDayLabel(ymd: string): string {
   })
 }
 
+/**
+ * Local `YYYY-MM-DD` for a Date — the inverse of toLocalDate, so a Date can be
+ * handed to formatDate and friends. Built from local parts on purpose:
+ * `toISOString()` converts to UTC first and shifts the date across midnight.
+ */
+export function toYmd(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 /** "5/08/2026" — the date part of a full ISO timestamp (created_at, superseded_at). */
 export function formatTimestampDate(iso: string | null | undefined, fallback = '—'): string {
   if (!iso) return fallback

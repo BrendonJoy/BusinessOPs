@@ -191,3 +191,65 @@ export async function uploadCompanyLogo(formData: FormData) {
 
   revalidatePath('/settings')
 }
+
+export async function requestAccountDeletion(formData: FormData) {
+  const supabase = await createClient()
+  const companyId = await getCompanyId(supabase)
+  if (!companyId) errorRedirect('Could not determine your company.')
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', companyId)
+    .maybeSingle()
+
+  // Typing the company name is the only friction between a bad afternoon and
+  // erasing years of invoices. Compared case-insensitively and trimmed —
+  // the point is deliberate intent, not a spelling test.
+  const typed = String(formData.get('confirm_name') ?? '').trim().toLowerCase()
+  const actual = String(company?.name ?? '').trim().toLowerCase()
+
+  if (!actual || typed !== actual) {
+    errorRedirect('Type your company name exactly as it appears to confirm deletion.')
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // RLS restricts this update to company accounts (migration 0032), so a staff
+  // member cannot reach it even by calling the API directly.
+  const { error } = await supabase
+    .from('companies')
+    .update({ deletion_requested_at: new Date().toISOString(), deletion_requested_by: user?.id ?? null })
+    .eq('id', companyId)
+
+  if (error) errorRedirect(error.message)
+
+  // No redirect, for the same reason as cancelAccountDeletion below: this form
+  // is submitted from /settings and redirecting to /settings is a no-op to the
+  // router, so the closing screen never appeared. That is a bad failure for
+  // this particular button — the account really had been scheduled for
+  // deletion, while the screen said nothing had happened.
+  revalidatePath('/', 'layout')
+}
+
+export async function cancelAccountDeletion() {
+  const supabase = await createClient()
+  const companyId = await getCompanyId(supabase)
+  if (!companyId) errorRedirect('Could not determine your company.')
+
+  const { error } = await supabase
+    .from('companies')
+    .update({ deletion_requested_at: null, deletion_requested_by: null })
+    .eq('id', companyId)
+
+  if (error) errorRedirect(error.message)
+
+  // Revalidate and re-render in place, deliberately without a redirect. This
+  // button lives on the closing screen, which the layout renders at whatever
+  // URL the user was already on — redirecting to that same URL is a no-op to
+  // the router, so the gate stayed on screen until the next full page load and
+  // it looked like nothing had happened.
+  revalidatePath('/', 'layout')
+}

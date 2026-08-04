@@ -6,8 +6,10 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatMoney } from '@/lib/money'
 import { CURRENCIES, PAY_CYCLE_LENGTHS, PAY_CYCLE_LENGTH_LABELS, WORKDAY_DAY_LABELS } from '@trade-assist/db'
 import type { Company, CompanyInvite, Profile, StaffPermissions } from '@trade-assist/db'
+import { DELETION_GRACE_DAYS } from '@/lib/account-deletion'
 import {
   regenerateCalendarToken,
+  requestAccountDeletion,
   updateCompany,
   updateCompanyModules,
   updateTimesheetSettings,
@@ -650,6 +652,43 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+
+      {isCompany && (
+      <section className={cardClasses()}>
+        <h2 className="mb-1 text-sm font-medium">Your data</h2>
+        <p className="mb-4 text-sm text-muted">
+          Download everything this account holds — jobs, customers, quotes, invoices, expenses,
+          timesheets and staff records — as a single JSON file. Uploaded photos and receipts are
+          listed but not included; download those from the jobs themselves.
+        </p>
+        {/* Plain anchor: a route handler returning a file, not a page. */}
+        <a href="/api/account/export" className={buttonClasses('secondary', 'md')} download>
+          Download my data
+        </a>
+      </section>
+      )}
+
+      {isCompany && (
+      <section className={cardClasses('border-rose-500/40')}>
+        <h2 className="mb-1 text-sm font-medium text-rose-700 dark:text-rose-300">Close this account</h2>
+        <p className="mb-2 text-sm text-muted">
+          The account closes immediately for everyone in your business. Your data is then kept for{' '}
+          {DELETION_GRACE_DAYS} days in case you change your mind, and permanently erased after
+          that. Download your data first — once erased, nobody can recover it.
+        </p>
+        <p className="mb-4 text-sm text-muted">
+          Type <span className="font-medium text-foreground">{company?.name}</span> to confirm.
+        </p>
+        <form action={requestAccountDeletion} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <Field label="Company name" htmlFor="confirm_name" className="sm:flex-1">
+            <Input id="confirm_name" name="confirm_name" type="text" required autoComplete="off" />
+          </Field>
+          <Button type="submit" variant="danger" className="w-full sm:w-auto">
+            Close account
+          </Button>
+        </form>
+      </section>
+      )}
     </div>
   )
 }

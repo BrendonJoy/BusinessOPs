@@ -146,12 +146,60 @@ so it does not warrant the switch to codes that reset required.
 
 ---
 
+## 2026-08-04 — Account deletion and data export
+
+**Was:** neither existed. An access request could not be serviced and an erasure
+request could only have been carried out by hand, against the database.
+
+**Now:**
+
+- **Export** — `/api/account/export` returns every table this company holds as a
+  single JSON file. Company accounts only: a full export contains colleagues'
+  pay rates and the business's finances, which is not a staff member's to take.
+  Each table is read *through the caller's own session*, so RLS does the
+  scoping — a mistake there can only ever return less than intended, never
+  another company's data. Verified: exactly one company row, not two.
+- **Deletion** — requested from Settings, confirmed by typing the company name.
+  The account closes immediately for everyone in the business; the data is
+  erased 30 days later by a daily cron. Company accounts only, enforced in RLS
+  rather than only in the UI (see below). Cancellable at any point in the 30
+  days, and the export stays reachable the whole time — leaving should not mean
+  losing the ability to take your records with you.
+
+**Why a grace period rather than immediate erasure:** a trades business's entire
+job, quote and invoice history should not be destroyable by one misclick, and
+erasure is the one mistake that no amount of apologising undoes. 30 days is
+still inside the one month UK GDPR allows for responding to an erasure request,
+so it costs nothing in compliance terms.
+
+**Privilege gap fixed in passing (migration 0032):** the `update own company`
+RLS policy allowed *any* member of a company to update the company row — staff
+included. Every control built on it has only ever been offered to company
+accounts in the UI, but the UI is not the boundary that counts: a staff member
+could already have changed their employer's tax settings or job numbering with a
+direct API call, and once a deletion flag lived on that table they could have
+scheduled the whole account for erasure. Now restricted to `role = 'company'`.
+
+**Verified end to end** with a disposable company account: export scoped
+correctly; a wrong company name rejected; the correct name (case-insensitive,
+whitespace-trimmed) accepted; the gate blocking every route; cancel restoring
+access; and a backdated request erased by the cron — company row, profile,
+storage object and auth user all confirmed gone, with a second run a no-op.
+
+**Note on evidence:** once a company is erased there is nothing left in the
+database to point at, so the cron's response body — which records what was
+erased and when — is the only record that it happened. It lands in the platform
+logs. A dedicated erasure log table would be a firmer basis if a regulator ever
+asks; recorded as an open item rather than built.
+
+---
+
 ## Known outstanding
 
 Not yet addressed. Recorded so the gaps are explicit rather than forgotten:
 
-- Account deletion and data export — access and erasure requests cannot currently be serviced
 - Signup acceptance capture, with a versioned record of which terms and privacy notice were accepted and when
+- No erasure log survives a deletion — the cron's response in the platform logs is currently the only evidence that an account was erased and on what date
 - Terms and privacy pages (drafting last, after the behaviour they describe is settled — needs legal review)
 - A data processing agreement for business customers — required once a customer company's staff data is processed on their behalf, and likely to be asked for by the first real customer
 - `feedback_messages` has no retention period. Same category as the two now purged (no statutory floor), left out only because it was not part of the agreed scope — worth a decision.
