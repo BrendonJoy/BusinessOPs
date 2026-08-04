@@ -48,13 +48,111 @@ Not legal advice; the policy pages still need a lawyer before paying customers.
 
 ---
 
+## 2026-08-04 — Security headers, crawler exclusion, sub-processor register
+
+**Now:** A Content-Security-Policy with a per-request nonce and `strict-dynamic`
+on scripts (set in `apps/web/src/proxy.ts`, which is where the nonce can be
+generated), plus HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy` and `Permissions-Policy` in `next.config.ts`. `robots.txt`
+disallows the whole `app.joytech.nz` host, and `/q/*` additionally serves
+`X-Robots-Tag: noindex, nofollow` with matching page metadata.
+
+**Why:** `/q/[token]` shows a named customer's address and prices to anyone with
+the link. Indexing would turn "unlisted" into "public". The header and the
+robots rule are deliberately redundant: a crawler that honours robots.txt never
+fetches the page, and one that ignores it still receives an explicit noindex.
+
+**Deliberate exceptions, recorded so they are not mistaken for oversights:**
+
+- `style-src` keeps `'unsafe-inline'`. A nonce does not cover inline `style`
+  *attributes*, and the calendar computes pixel positions that cannot be
+  Tailwind classes — a strict style policy would break the day view silently.
+- `Permissions-Policy` allows camera, microphone and geolocation for `self`.
+  The widely-copied value disables all three; this app uses all three.
+- HSTS omits `preload`, which would commit the whole `joytech.nz` tree for the
+  lifetime of shipped browsers and is effectively irreversible.
+
+**Also fixed:** `robots.txt` was being caught by the auth redirect and served as
+the login page — the file existed and did nothing. Same failure as the PWA
+manifest in an earlier batch; `/robots.txt` is now in the proxy's public paths.
+
+**Sub-processor register written** — `docs/SUBPROCESSORS.md`. Notable finding:
+Google Maps is called only server-side, so the browser never contacts Google and
+no user IP, cookie or API key is exposed to them. Anthropic is the sub-processor
+that most needs naming explicitly, because assistant queries carry customer PII.
+
+---
+
+## 2026-08-04 — Retention periods set and enforced
+
+**Was:** nothing was ever deleted. No retention period existed to state.
+
+**Now:** assistant transcripts (`chat_messages`) are kept 12 months and the job
+audit log 24 months, enforced by a weekly cron (`/api/cron/retention-purge`)
+built on `apps/web/src/lib/retention.ts`, which is the single source of truth for
+the numbers the privacy policy will quote.
+
+**Why these two only:** they are the categories with no statutory floor.
+Deliberately excluded: quotes, invoices, expenses and cost entries (seven-year
+tax record requirements in NZ, AU and UK); timesheets, timesheet days and
+payroll periods (wage and time records — six years NZ, seven years AU). Purging
+those would put customers in breach of their own obligations. Live business data
+goes when the account goes, which is what account deletion is for.
+
+**Verified:** planted an expired row and a fresh one, ran the job, confirmed only
+the expired row was deleted and the count was reported; test rows removed.
+Unauthenticated requests get 401.
+
+---
+
+## 2026-08-04 — Email confirmation was a one-way door
+
+**Was:** signing up sent a confirmation email and dropped the user back on the
+login form with a small notice. There was no way to request the email again
+anywhere in the app. An address whose confirmation email was lost, spam-filtered
+or mistyped was permanently stuck: the address was taken, so signing up again
+failed, and logging in failed because it was unconfirmed. **Accepting a team
+invite had the same flaw and worse** — acceptance consumes the invite, so a
+staff member could not reuse their link either.
+
+**Now:** a `/check-email` screen that states what happened, names the address
+(read from a short-lived httpOnly cookie, never a query parameter — emails in
+URLs end up in server logs, browser history and referer headers), and offers a
+resend. The "Email not confirmed" login error links to it. Both signup and
+invite acceptance route there.
+
+**Why it belongs in this log:** the same reasoning as the password-reset entry
+above. Account access is an access-control function, and a customer permanently
+locked out of their own business data is a rights and availability problem, not
+a support annoyance.
+
+**Also fixed:** Supabase returns an empty error body for some failures (a
+rejected address, a failed confirmation send). The message serialised to the
+literal string `{}`, which was shown to the user as their entire explanation.
+Unusable messages now become plain English, with the real error logged
+server-side (`lib/auth-errors.ts`).
+
+**Rate limiting checked, not guessed:** Supabase allows one confirmation email
+per address per 60 seconds. A blocked attempt does *not* restart the window
+(verified: success at T+0, 429 at T+30, success at T+65), so repeated presses
+cannot lock a user out of their own resend. The countdown in the 429 is shown
+verbatim because it tells the user exactly how long to wait.
+
+**Noted, not fixed:** the confirmation email is a single-use link, so Microsoft
+Safe Links will spend it in transit exactly as it did for password reset. The
+consequence differs — fetching a confirmation link *confirms the account*, so
+the user sees "expired" and can simply log in. Confusing rather than a lockout,
+so it does not warrant the switch to codes that reset required.
+
+---
+
 ## Known outstanding
 
 Not yet addressed. Recorded so the gaps are explicit rather than forgotten:
 
-- Retention periods and any purge mechanism — nothing is ever deleted today
 - Account deletion and data export — access and erasure requests cannot currently be serviced
-- Sub-processor disclosure: Anthropic, Google Maps, Resend, Supabase, Vercel
-- Signup consent capture, with a versioned record of what was accepted and when
+- Signup acceptance capture, with a versioned record of which terms and privacy notice were accepted and when
 - Terms and privacy pages (drafting last, after the behaviour they describe is settled — needs legal review)
-- `noindex` on public quote pages; security headers (CSP, `Referrer-Policy`, `X-Frame-Options`)
+- A data processing agreement for business customers — required once a customer company's staff data is processed on their behalf, and likely to be asked for by the first real customer
+- `feedback_messages` has no retention period. Same category as the two now purged (no statutory floor), left out only because it was not part of the agreed scope — worth a decision.
+- Anthropic's API retention and model-training position is not yet confirmed in writing (`SUBPROCESSORS.md`)
