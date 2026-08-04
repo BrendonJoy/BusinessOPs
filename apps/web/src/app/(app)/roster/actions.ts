@@ -46,6 +46,14 @@ export async function createShift(returnTo: string, formData: FormData) {
 
   const eventDayId = String(formData.get('event_day_id') ?? '') || null
 
+  // Sent by the client rather than derived here — see migration 0038. Rejected
+  // outright if missing, because a silent fallback to the server's today would
+  // file shifts under the wrong day for anyone not on UTC.
+  const localDate = String(formData.get('local_date') ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
+    errorRedirect(returnTo, 'Could not read the shift date. Refresh and try again.')
+  }
+
   const { error } = await supabase.from('shifts').insert({
     company_id: profile.company_id,
     team_id: teamId,
@@ -53,6 +61,7 @@ export async function createShift(returnTo: string, formData: FormData) {
     title: String(formData.get('title') ?? '').trim() || null,
     starts_at: startsAt,
     ends_at: endsAt,
+    local_date: localDate,
     notes: String(formData.get('notes') ?? '').trim() || null,
   })
 

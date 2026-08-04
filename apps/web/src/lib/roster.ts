@@ -10,9 +10,13 @@ export type RosterShift = {
   teamId: string
   teamName: string
   eventDayId: string | null
+  /** Null for a dark-day shift — one scheduled with no event running. */
+  eventName: string | null
   title: string | null
   startsAt: string
   endsAt: string
+  /** The day the shift belongs to, as the venue means it. See migration 0038. */
+  localDate: string
   notes: string | null
   assigned: RosterPerson[]
 }
@@ -186,6 +190,19 @@ export async function getClockableShifts(
   }))
 }
 
+const SHIFT_COLUMNS = 'id, team_id, event_day_id, title, starts_at, ends_at, local_date, notes'
+
+type ShiftRow = {
+  id: string
+  team_id: string
+  event_day_id: string | null
+  title: string | null
+  starts_at: string
+  ends_at: string
+  local_date: string
+  notes: string | null
+}
+
 /**
  * Shifts for a set of event days, with who is on them.
  *
@@ -198,22 +215,44 @@ export async function getShiftsForEventDays(
 ): Promise<RosterShift[]> {
   if (eventDayIds.length === 0) return []
 
-  const { data: shiftData } = await supabase
+  const { data } = await supabase
     .from('shifts')
-    .select('id, team_id, event_day_id, title, starts_at, ends_at, notes')
+    .select(SHIFT_COLUMNS)
     .in('event_day_id', eventDayIds)
     .order('starts_at')
 
-  const shifts = (shiftData ?? []) as {
-    id: string
-    team_id: string
-    event_day_id: string | null
-    title: string | null
-    starts_at: string
-    ends_at: string
-    notes: string | null
-  }[]
+  return hydrateShifts(supabase, (data ?? []) as ShiftRow[])
+}
 
+/**
+ * Every shift the viewer can see between two dates, event-linked or not.
+ *
+ * Filtered on `local_date` rather than on `starts_at`, which is the whole point
+ * of storing it: a pack-out running past midnight stays on the day it began
+ * instead of appearing on tomorrow's roster, and the answer does not change
+ * with the server's timezone.
+ */
+export async function getShiftsInDateRange(
+  supabase: SupabaseClient,
+  fromDate: string,
+  toDate: string
+): Promise<RosterShift[]> {
+  const { data } = await supabase
+    .from('shifts')
+    .select(SHIFT_COLUMNS)
+    .gte('local_date', fromDate)
+    .lte('local_date', toDate)
+    .order('local_date')
+    .order('starts_at')
+
+  return hydrateShifts(supabase, (data ?? []) as ShiftRow[])
+}
+
+/** Attaches department names, event names and who is rostered on. */
+async function hydrateShifts(
+  supabase: SupabaseClient,
+  shifts: ShiftRow[]
+): Promise<RosterShift[]> {
   if (shifts.length === 0) return []
 
   const [{ data: assignmentData }, { data: teamsData }] = await Promise.all([
@@ -251,14 +290,38 @@ export async function getShiftsForEventDays(
     byShift.set(assignment.shift_id, list)
   }
 
+  // Event names, for shifts that belong to one. Resolved in two hops rather
+  // than a nested embed, for the same reason as everything else here.
+  const dayIds = [...new Set(shifts.map((s) => s.event_day_id).filter((id): id is string => Boolean(id)))]
+
+  const { data: dayData } = dayIds.length
+    ? await supabase.from('event_days').select('id, event_id').in('id', dayIds)
+    : { data: [] }
+
+  const days = (dayData ?? []) as { id: string; event_id: string }[]
+  const eventIds = [...new Set(days.map((d) => d.event_id))]
+
+  const { data: eventData } = eventIds.length
+    ? await supabase.from('events').select('id, name').in('id', eventIds)
+    : { data: [] }
+
+  const eventNameById = new Map(
+    ((eventData ?? []) as { id: string; name: string }[]).map((e) => [e.id, e.name])
+  )
+  const eventNameByDay = new Map(
+    days.map((d) => [d.id, eventNameById.get(d.event_id) ?? null] as const)
+  )
+
   return shifts.map((shift) => ({
     id: shift.id,
     teamId: shift.team_id,
     teamName: teamName.get(shift.team_id) ?? 'Department',
     eventDayId: shift.event_day_id,
+    eventName: shift.event_day_id ? (eventNameByDay.get(shift.event_day_id) ?? null) : null,
     title: shift.title,
     startsAt: shift.starts_at,
     endsAt: shift.ends_at,
+    localDate: shift.local_date,
     notes: shift.notes,
     assigned: (byShift.get(shift.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
   }))

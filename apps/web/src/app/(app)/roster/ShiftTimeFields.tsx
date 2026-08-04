@@ -68,6 +68,11 @@ export default function ShiftTimeFields({
 
       <input type="hidden" name="starts_at" value={toInstant(start)} />
       <input type="hidden" name="ends_at" value={toInstant(end)} />
+      {/* The date half of the start picker, verbatim. This is the day the shift
+          belongs to for rostering — a pack-out running 20:00 to 02:00 is
+          Saturday's, not Sunday's — and taking it as typed avoids deriving it
+          from the instant, which would land in whichever zone did the deriving. */}
+      <input type="hidden" name="local_date" value={start.slice(0, 10)} />
     </>
   )
 }
