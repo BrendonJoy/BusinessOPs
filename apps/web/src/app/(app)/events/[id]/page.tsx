@@ -12,6 +12,9 @@ import {
 } from '@trade-assist/db'
 import { Button, Field, Input, Notice, PageHeader, Select, Textarea, cardClasses } from '@/components/ui'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
+import { getRosterContext, getShiftsForEventDays } from '@/lib/roster'
+import ShiftCard from '../../roster/ShiftCard'
+import AddShiftForm from '../../roster/AddShiftForm'
 import { addEventDay, deleteEvent, removeEventDay, updateEvent } from '../actions'
 
 const DAY_TYPE_STYLE: Record<string, string> = {
@@ -53,6 +56,22 @@ export default async function EventDetailPage({
 
   const canEdit = isCompanyAccount(profile?.role) || (managedCount ?? 0) > 0
 
+  const roster = await getRosterContext(supabase)
+  const shifts = await getShiftsForEventDays(
+    supabase,
+    days.map((day) => day.id)
+  )
+
+  const shiftsByDay = new Map<string, typeof shifts>()
+  for (const shift of shifts) {
+    if (!shift.eventDayId) continue
+    const list = shiftsByDay.get(shift.eventDayId) ?? []
+    list.push(shift)
+    shiftsByDay.set(shift.eventDayId, list)
+  }
+
+  const returnTo = `/events/${event.id}`
+
   return (
     <div>
       <Link href="/events" className="mb-4 inline-block text-sm font-medium text-accent">
@@ -80,34 +99,60 @@ export default async function EventDetailPage({
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {days.map((day) => (
-              <li
-                key={day.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-surface-border px-3 py-2"
-              >
-                <span className="flex items-center gap-3">
-                  <span
-                    className={`rounded border px-1.5 py-0.5 text-xs font-medium ${DAY_TYPE_STYLE[day.day_type]}`}
-                  >
-                    {EVENT_DAY_TYPE_LABELS[day.day_type]}
-                  </span>
-                  <span className="text-sm">
-                    {formatDayLabel(day.day_date)}
-                    <span className="ml-2 text-muted">{formatDate(day.day_date)}</span>
-                  </span>
-                </span>
+            {days.map((day) => {
+              const dayShifts = shiftsByDay.get(day.id) ?? []
 
-                {canEdit && (
-                  <ConfirmSubmitButton
-                    action={removeEventDay.bind(null, event.id, day.id)}
-                    confirmMessage={`Remove ${EVENT_DAY_TYPE_LABELS[day.day_type]} on ${formatDate(day.day_date)} from this event?`}
-                    className="text-xs text-muted hover:text-accent"
-                  >
-                    Remove
-                  </ConfirmSubmitButton>
-                )}
-              </li>
-            ))}
+              return (
+                <li key={day.id} className="rounded-md border border-surface-border px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-3">
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-xs font-medium ${DAY_TYPE_STYLE[day.day_type]}`}
+                      >
+                        {EVENT_DAY_TYPE_LABELS[day.day_type]}
+                      </span>
+                      <span className="text-sm">
+                        {formatDayLabel(day.day_date)}
+                        <span className="ml-2 text-muted">{formatDate(day.day_date)}</span>
+                      </span>
+                    </span>
+
+                    {canEdit && (
+                      <ConfirmSubmitButton
+                        action={removeEventDay.bind(null, event.id, day.id)}
+                        confirmMessage={`Remove ${EVENT_DAY_TYPE_LABELS[day.day_type]} on ${formatDate(day.day_date)} from this event?`}
+                        className="text-xs text-muted hover:text-accent"
+                      >
+                        Remove
+                      </ConfirmSubmitButton>
+                    )}
+                  </div>
+
+                  {dayShifts.length > 0 && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {dayShifts.map((shift) => (
+                        <ShiftCard
+                          key={shift.id}
+                          shift={shift}
+                          members={roster.membersByTeam.get(shift.teamId) ?? []}
+                          canManage={roster.canManage(shift.teamId)}
+                          returnTo={returnTo}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {canEdit && (
+                    <AddShiftForm
+                      eventDayId={day.id}
+                      dayDate={day.day_date}
+                      departments={roster.manageable}
+                      returnTo={returnTo}
+                    />
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
 
