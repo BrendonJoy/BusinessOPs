@@ -30,11 +30,26 @@ function extractPermissions(formData: FormData) {
   }
 }
 
-function parsePayRate(formData: FormData): number | null {
+type PayDetails = { pay_type: 'hourly' | 'salaried'; pay_rate: number | null }
+
+/**
+ * Returns null for "not set up yet", which is a genuinely different state from
+ * salaried — the latter is a decision, the former is an outstanding task. Both
+ * produce no labour cost on clock-out, which is exactly why they need telling
+ * apart in the data.
+ */
+function parsePay(formData: FormData): PayDetails | null {
+  if (String(formData.get('pay_type') ?? '') === 'salaried') {
+    return { pay_type: 'salaried', pay_rate: null }
+  }
+
   const raw = String(formData.get('pay_rate') ?? '').trim()
   if (!raw) return null
+
   const value = Number(raw)
-  return Number.isFinite(value) ? value : null
+  if (!Number.isFinite(value) || value < 0) return null
+
+  return { pay_type: 'hourly', pay_rate: value }
 }
 
 /**
@@ -107,11 +122,11 @@ export async function updateMemberPermissions(profileId: string, formData: FormD
     .eq('id', profileId)
   if (error) errorRedirect(error.message)
 
-  const payRate = parsePayRate(formData)
-  if (payRate === null) {
+  const pay = parsePay(formData)
+  if (pay === null) {
     await supabase.from('staff_pay_rates').delete().eq('profile_id', profileId)
   } else {
-    await supabase.from('staff_pay_rates').upsert({ profile_id: profileId, pay_rate: payRate })
+    await supabase.from('staff_pay_rates').upsert({ profile_id: profileId, ...pay })
   }
 
   revalidatePath('/settings')
@@ -127,7 +142,11 @@ export async function updateInvitePermissions(inviteId: string, formData: FormDa
     .update({
       ...extractPermissions(formData),
       ...extractEmployment(formData),
-      pay_rate: parsePayRate(formData),
+      // Written as an explicit pair so switching an invite from hourly to
+      // salaried clears the rate rather than leaving a stale one behind for
+      // handle_new_user to pick up when the invite is accepted.
+      pay_type: parsePay(formData)?.pay_type ?? null,
+      pay_rate: parsePay(formData)?.pay_rate ?? null,
     })
     .eq('id', inviteId)
   if (error) errorRedirect(error.message)

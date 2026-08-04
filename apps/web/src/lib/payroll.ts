@@ -151,9 +151,13 @@ export async function getPayrollReport(
   const days = new Map<string, DayRow>()
   for (const d of (daysData ?? []) as DayRow[]) days.set(d.id, d)
 
+  // Salaried staff have a row with a null rate. `Number(null)` is 0, which
+  // would report them at $0.00/hr and a total pay of $0.00 — indistinguishable
+  // from an hourly worker whose rate was set to zero. Skipping them leaves the
+  // rate null, which the report already renders as "—".
   const rates = new Map<string, number>()
-  for (const r of (ratesData ?? []) as { profile_id: string; pay_rate: number }[]) {
-    rates.set(r.profile_id, Number(r.pay_rate))
+  for (const r of (ratesData ?? []) as { profile_id: string; pay_rate: number | null }[]) {
+    if (r.pay_rate !== null) rates.set(r.profile_id, Number(r.pay_rate))
   }
 
   const byStaff = new Map<string, StaffPayroll>()

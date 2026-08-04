@@ -5,7 +5,7 @@ import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatMoney } from '@/lib/money'
 import { CURRENCIES, PAY_CYCLE_LENGTHS, PAY_CYCLE_LENGTH_LABELS, WORKDAY_DAY_LABELS } from '@trade-assist/db'
-import type { Company, CompanyInvite, Profile, StaffPermissions } from '@trade-assist/db'
+import type { Company, CompanyInvite, PayType, Profile, StaffPermissions } from '@trade-assist/db'
 import { DELETION_GRACE_DAYS } from '@/lib/account-deletion'
 import {
   regenerateCalendarToken,
@@ -24,6 +24,7 @@ import {
   updateMemberPermissions,
 } from './team-actions'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
+import PayFields from './PayFields'
 import FileUploadButtons from '@/components/FileUploadButtons'
 import {
   Button,
@@ -68,7 +69,7 @@ export default async function SettingsPage({
 
   let team: Profile[] = []
   let pendingInvites: CompanyInvite[] = []
-  let payRatesByProfileId = new Map<string, number>()
+  let payByProfileId = new Map<string, { rate: number | null; type: PayType }>()
 
   if (isCompany) {
     const { data: teamData } = await supabase
@@ -88,25 +89,40 @@ export default async function SettingsPage({
 
     const { data: payRatesData } = await supabase
       .from('staff_pay_rates')
-      .select('profile_id, pay_rate')
+      .select('profile_id, pay_rate, pay_type')
       .in(
         'profile_id',
         team.map((m) => m.id)
       )
-    payRatesByProfileId = new Map((payRatesData ?? []).map((r) => [r.profile_id, Number(r.pay_rate)]))
+    // A salaried row carries a null rate, so the rate cannot be coerced with
+    // Number() here — that would turn "salaried" into a rate of zero.
+    payByProfileId = new Map(
+      (payRatesData ?? []).map((r) => [
+        r.profile_id as string,
+        {
+          rate: r.pay_rate === null ? null : Number(r.pay_rate),
+          type: r.pay_type as PayType,
+        },
+      ])
+    )
   }
 
   const companyMember = team.find((m) => m.role === 'company')
   const staffMembers = team.filter((m) => m.role === 'staff')
 
-  let myPayRate: number | null = null
+  let myPay: { rate: number | null; type: PayType } | null = null
   if (!isCompany) {
     const { data: myRateRow } = await supabase
       .from('staff_pay_rates')
-      .select('pay_rate')
+      .select('pay_rate, pay_type')
       .eq('profile_id', currentProfile.id)
       .maybeSingle()
-    myPayRate = myRateRow ? Number(myRateRow.pay_rate) : null
+    myPay = myRateRow
+      ? {
+          rate: myRateRow.pay_rate === null ? null : Number(myRateRow.pay_rate),
+          type: myRateRow.pay_type as PayType,
+        }
+      : null
   }
 
   return (
@@ -563,7 +579,11 @@ export default async function SettingsPage({
                   </ConfirmSubmitButton>
                 </div>
                 <MemberEditor
-                  member={{ ...member, pay_rate: payRatesByProfileId.get(member.id) ?? null }}
+                  member={{
+                    ...member,
+                    pay_rate: payByProfileId.get(member.id)?.rate ?? null,
+                    pay_type: payByProfileId.get(member.id)?.type ?? null,
+                  }}
                   action={updateMemberPermissions.bind(null, member.id)}
                 />
               </div>
@@ -638,9 +658,13 @@ export default async function SettingsPage({
           </div>
           {!isCompany && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">Hourly rate</label>
+              <label className="text-sm font-medium">Pay</label>
               <p className="rounded-md border border-surface-border bg-surface px-3 py-2 text-sm text-muted">
-                {myPayRate !== null ? formatMoney(myPayRate, company?.currency ?? 'USD') : 'Not set'}
+                {myPay?.type === 'salaried'
+                  ? 'Salaried'
+                  : myPay?.rate != null
+                    ? `${formatMoney(myPay.rate, company?.currency ?? 'USD')} / hour`
+                    : 'Not set'}
               </p>
             </div>
           )}
@@ -708,7 +732,12 @@ function MemberEditor({
 }: {
   // `id` is needed to scope the field ids — otherwise every member's inputs
   // share the same id and labels point at the wrong control.
-  member: StaffPermissions & { id: string; pay_rate: number | null; job_title: string | null }
+  member: StaffPermissions & {
+    id: string
+    pay_rate: number | null
+    pay_type: PayType | null
+    job_title: string | null
+  }
   action: (formData: FormData) => void
 }) {
   return (
@@ -723,19 +752,7 @@ function MemberEditor({
             defaultValue={member.job_title ?? ''}
           />
         </Field>
-        <Field label="Hourly pay rate" htmlFor={`pay_rate-${member.id}`}>
-          <Input
-            id={`pay_rate-${member.id}`}
-            name="pay_rate"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            placeholder="Not set"
-            defaultValue={member.pay_rate ?? ''}
-            className="sm:w-32"
-          />
-        </Field>
+        <PayFields idPrefix={member.id} payType={member.pay_type} payRate={member.pay_rate} />
       </div>
 
       <div className="border-t border-surface-border pt-3">

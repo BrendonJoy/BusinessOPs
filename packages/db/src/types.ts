@@ -87,14 +87,25 @@ export interface CompanyInvite extends StaffPermissions {
   invited_by: string | null
   job_title: string | null
   pay_rate: number | null
+  /** Null until chosen — distinct from 'salaried', which is a decision. */
+  pay_type: PayType | null
   created_at: string
   expires_at: string
   accepted_at: string | null
 }
 
+/**
+ * Salaried staff are rostered like anyone else but carry no hourly rate, so no
+ * labour cost is recorded when they clock out. Managers at a venue are usually
+ * salaried while the people they roster are casual and hourly.
+ */
+export type PayType = 'hourly' | 'salaried'
+
 export interface StaffPayRate {
   profile_id: string
-  pay_rate: number
+  /** Null exactly when pay_type is 'salaried'; enforced by a check constraint. */
+  pay_rate: number | null
+  pay_type: PayType
   updated_at: string
 }
 
