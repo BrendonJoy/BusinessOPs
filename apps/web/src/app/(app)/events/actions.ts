@@ -28,12 +28,12 @@ export async function createEvent(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim()
   if (!name) errorRedirect('/events/new', 'Give the event a name.')
 
-  const venue = String(formData.get('venue') ?? '').trim() || null
+  const venueId = String(formData.get('venue_id') ?? '').trim() || null
   const notes = String(formData.get('notes') ?? '').trim() || null
 
   const { data, error } = await supabase
     .from('events')
-    .insert({ company_id: companyId, name, venue, notes })
+    .insert({ company_id: companyId, name, venue_id: venueId, notes })
     .select('id')
     .single()
 
@@ -112,7 +112,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     .from('events')
     .update({
       name,
-      venue: String(formData.get('venue') ?? '').trim() || null,
+      venue_id: String(formData.get('venue_id') ?? '').trim() || null,
       notes: String(formData.get('notes') ?? '').trim() || null,
     })
     .eq('id', eventId)

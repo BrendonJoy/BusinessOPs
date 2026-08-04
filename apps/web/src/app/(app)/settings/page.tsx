@@ -5,7 +5,7 @@ import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatMoney } from '@/lib/money'
 import { CURRENCIES, PAY_CYCLE_LENGTHS, PAY_CYCLE_LENGTH_LABELS, WORKDAY_DAY_LABELS } from '@trade-assist/db'
-import type { Company, CompanyInvite, PayType, Profile, StaffPermissions } from '@trade-assist/db'
+import type { Company, CompanyInvite, PayType, Profile, StaffPermissions, Venue } from '@trade-assist/db'
 import { DELETION_GRACE_DAYS } from '@/lib/account-deletion'
 import {
   regenerateCalendarToken,
@@ -33,6 +33,7 @@ import {
   renameTeam,
   updateTeamMemberRole,
 } from './department-actions'
+import { createVenue, deleteVenue, updateVenue } from './venue-actions'
 import FileUploadButtons from '@/components/FileUploadButtons'
 import {
   Button,
@@ -121,14 +122,17 @@ export default async function SettingsPage({
 
   let departments: { id: string; name: string }[] = []
   let memberships: { team_id: string; profile_id: string; role: 'manager' | 'staff' }[] = []
+  let venues: Venue[] = []
 
   if (isCompany && eventsEnabled) {
-    const [{ data: teamsData }, { data: membershipData }] = await Promise.all([
+    const [{ data: teamsData }, { data: membershipData }, { data: venuesData }] = await Promise.all([
       supabase.from('teams').select('id, name').eq('company_id', profile.company_id).order('name'),
       supabase.from('team_memberships').select('team_id, profile_id, role'),
+      supabase.from('venues').select('*').eq('company_id', profile.company_id).order('name'),
     ])
     departments = (teamsData ?? []) as { id: string; name: string }[]
     memberships = (membershipData ?? []) as typeof memberships
+    venues = (venuesData ?? []) as Venue[]
   }
 
   const companyMember = team.find((m) => m.role === 'company')
@@ -712,6 +716,46 @@ export default async function SettingsPage({
 
       {isCompany && eventsEnabled && (
       <section className={cardClasses()}>
+        <h2 className="mb-1 text-sm font-medium">Venues</h2>
+        <p className="mb-4 text-sm text-muted">
+          Where work happens. If geofencing is on, a shift&apos;s clock-in is checked against its
+          venue&apos;s address — its own if it has one, otherwise its event&apos;s.
+        </p>
+
+        {venues.length === 0 ? (
+          <EmptyState
+            title="No venues yet"
+            description="Add one below. Events and dark-day shifts both point at a venue, and it's what clock-in gets fenced against."
+          />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {venues.map((venue) => (
+              <VenueEditor
+                key={venue.id}
+                venue={venue}
+                geofenceEnabled={company?.geofence_enabled ?? false}
+              />
+            ))}
+          </div>
+        )}
+
+        <form
+          action={createVenue}
+          className="mt-4 flex flex-wrap items-end gap-3 border-t border-surface-border pt-4"
+        >
+          <Field label="New venue" htmlFor="new_venue_name">
+            <Input id="new_venue_name" name="name" type="text" placeholder="Main Arena" required className="sm:w-44" />
+          </Field>
+          <Field label="Address" htmlFor="new_venue_address" className="min-w-[200px] flex-1">
+            <Input id="new_venue_address" name="address" type="text" placeholder="Street, suburb, city" />
+          </Field>
+          <Button type="submit">Add venue</Button>
+        </form>
+      </section>
+      )}
+
+      {isCompany && eventsEnabled && (
+      <section className={cardClasses()}>
         <h2 className="mb-1 text-sm font-medium">Departments</h2>
         <p className="mb-4 text-sm text-muted">
           Departments are how rostering is divided up. A manager schedules their own department and
@@ -797,6 +841,69 @@ export default async function SettingsPage({
         </form>
       </section>
       )}
+    </div>
+  )
+}
+
+/**
+ * One venue. Coordinates are shown rather than hidden, because "geofencing is
+ * on" and "this venue can actually be fenced" are different facts, and the
+ * difference only surfaces otherwise as a staff member clocking in from home
+ * and nobody noticing.
+ */
+function VenueEditor({ venue, geofenceEnabled }: { venue: Venue; geofenceEnabled: boolean }) {
+  const located = venue.geo_lat !== null && venue.geo_lng !== null
+
+  return (
+    <div className="rounded-lg border border-surface-border p-3">
+      <form
+        action={updateVenue.bind(null, venue.id)}
+        className="flex flex-wrap items-end gap-3"
+      >
+        <Field label="Name" htmlFor={`venue_name-${venue.id}`}>
+          <Input
+            id={`venue_name-${venue.id}`}
+            name="name"
+            type="text"
+            defaultValue={venue.name}
+            className="sm:w-44"
+          />
+        </Field>
+        <Field label="Address" htmlFor={`venue_address-${venue.id}`} className="min-w-[200px] flex-1">
+          <Input
+            id={`venue_address-${venue.id}`}
+            name="address"
+            type="text"
+            defaultValue={venue.address ?? ''}
+            placeholder="Street, suburb, city"
+          />
+        </Field>
+        <Button type="submit" size="sm">
+          Save
+        </Button>
+        <ConfirmSubmitButton
+          action={deleteVenue.bind(null, venue.id)}
+          confirmMessage={`Delete ${venue.name}?`}
+          className="pb-2 text-xs text-muted hover:text-accent"
+        >
+          Delete
+        </ConfirmSubmitButton>
+      </form>
+
+      <p className="mt-2 text-xs text-muted">
+        {located ? (
+          <>
+            Located — clock-in {geofenceEnabled ? 'is fenced to this address.' : 'would be fenced here if geofencing were on.'}
+          </>
+        ) : venue.address ? (
+          <>
+            Address couldn&apos;t be located, so shifts here can&apos;t be geofenced. Try a more
+            specific address.
+          </>
+        ) : (
+          <>No address, so shifts here can&apos;t be geofenced.</>
+        )}
+      </p>
     </div>
   )
 }

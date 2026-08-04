@@ -27,13 +27,17 @@ export default async function EventsPage({
 
   const canCreate = isCompanyAccount(profile?.role) || (managedCount ?? 0) > 0
 
-  const [{ data: eventsData }, { data: daysData }] = await Promise.all([
+  const [{ data: eventsData }, { data: daysData }, { data: venuesData }] = await Promise.all([
     supabase.from('events').select('*').order('created_at', { ascending: false }),
     supabase.from('event_days').select('*').order('day_date'),
+    supabase.from('venues').select('id, name'),
   ])
 
   const events = (eventsData ?? []) as EventRecord[]
   const days = (daysData ?? []) as EventDay[]
+  const venueName = new Map(
+    ((venuesData ?? []) as { id: string; name: string }[]).map((v) => [v.id, v.name])
+  )
 
   const daysByEvent = new Map<string, EventDay[]>()
   for (const day of days) {
@@ -93,7 +97,9 @@ export default async function EventsPage({
               <li key={event.id} className="relative">
                 <div className={cardClasses()}>
                   <p className="font-medium">{event.name}</p>
-                  {event.venue && <p className="text-sm text-muted">{event.venue}</p>}
+                  {event.venue_id && (
+                    <p className="text-sm text-muted">{venueName.get(event.venue_id) ?? 'Venue'}</p>
+                  )}
 
                   <p className="mt-2 text-sm text-muted">
                     {eventDays.length === 0 ? (

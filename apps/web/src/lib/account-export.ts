@@ -36,6 +36,7 @@ const EXPORTED_TABLES = [
   'policy_acceptances',
   // StaffOps. Added with the schema rather than afterwards — an export that
   // silently omits a product's data is worse than one that fails loudly.
+  'venues',
   'teams',
   'team_memberships',
   'events',

@@ -1,4 +1,5 @@
 import { Button, Field, Input, Select } from '@/components/ui'
+import type { Venue } from '@trade-assist/db'
 import ShiftTimeFields from './ShiftTimeFields'
 import { createShift } from './actions'
 
@@ -11,11 +12,14 @@ export default function AddShiftForm({
   eventDayId,
   dayDate,
   departments,
+  venues = [],
   returnTo,
 }: {
   eventDayId: string | null
   dayDate: string
   departments: { id: string; name: string }[]
+  /** Only offered for dark-day shifts; event shifts inherit the event's venue. */
+  venues?: Venue[]
   returnTo: string
 }) {
   if (departments.length === 0) {
@@ -49,6 +53,20 @@ export default function AddShiftForm({
       <Field label="Role" htmlFor={`title-${idPrefix}`} hint="Optional.">
         <Input id={`title-${idPrefix}`} name="title" type="text" placeholder="Bar" className="sm:w-36" />
       </Field>
+
+      {!eventDayId && venues.length > 0 && (
+        <Field label="Venue" htmlFor={`venue-${idPrefix}`} hint="For geofencing.">
+          <Select id={`venue-${idPrefix}`} name="venue_id" fullWidth={false} className="sm:w-40">
+            <option value="">No venue</option>
+            {venues.map((venue) => (
+              <option key={venue.id} value={venue.id}>
+                {venue.name}
+                {venue.geo_lat === null ? ' (not located)' : ''}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       <ShiftTimeFields
         idPrefix={idPrefix}

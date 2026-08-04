@@ -9,7 +9,9 @@ import {
   EVENT_DAY_TYPE_LABELS,
   type EventDay,
   type EventRecord,
+  type Venue,
 } from '@trade-assist/db'
+import VenueSelect from '../VenueSelect'
 import { Button, Field, Input, Notice, PageHeader, Select, Textarea, cardClasses } from '@/components/ui'
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton'
 import { getRosterContext, getShiftsForEventDays } from '@/lib/roster'
@@ -48,6 +50,10 @@ export default async function EventDetailPage({
     .order('day_date')
   const days = (daysData ?? []) as EventDay[]
 
+  const { data: venuesData } = await supabase.from('venues').select('*').order('name')
+  const venues = (venuesData ?? []) as Venue[]
+  const venue = venues.find((v) => v.id === event.venue_id) ?? null
+
   const { count: managedCount } = await supabase
     .from('team_memberships')
     .select('team_id', { count: 'exact', head: true })
@@ -80,7 +86,7 @@ export default async function EventDetailPage({
 
       <PageHeader
         title={event.name}
-        description={event.venue ?? undefined}
+        description={venue?.name ?? undefined}
       />
 
       {error && (
@@ -185,9 +191,7 @@ export default async function EventDetailPage({
             <Field label="Event name" htmlFor="name">
               <Input id="name" name="name" type="text" required defaultValue={event.name} />
             </Field>
-            <Field label="Venue" htmlFor="venue">
-              <Input id="venue" name="venue" type="text" defaultValue={event.venue ?? ''} />
-            </Field>
+            <VenueSelect venues={venues} defaultValue={event.venue_id} />
             <Field label="Notes" htmlFor="notes">
               <Textarea id="notes" name="notes" rows={3} defaultValue={event.notes ?? ''} />
             </Field>

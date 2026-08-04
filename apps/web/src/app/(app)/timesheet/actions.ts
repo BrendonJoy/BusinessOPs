@@ -67,6 +67,72 @@ async function checkGeofence(
   }
 }
 
+/**
+ * A shift is fenced against its venue: its own if it has one, otherwise its
+ * event's. Dark-day shifts set theirs directly; event shifts normally inherit.
+ *
+ * No venue, or a venue whose address never geocoded, means no fence — the same
+ * way a job without coordinates is skipped. Refusing the clock-in instead would
+ * strand someone over a setting they cannot see or change.
+ */
+async function checkShiftGeofence(
+  supabase: SupabaseClient,
+  settings: TimesheetSettings,
+  shiftId: string,
+  lat: number | null,
+  lng: number | null
+) {
+  if (!settings.geofence_enabled) return
+
+  const { data: shift } = await supabase
+    .from('shifts')
+    .select('venue_id, event_day_id')
+    .eq('id', shiftId)
+    .maybeSingle()
+
+  if (!shift) return
+
+  let venueId = shift.venue_id as string | null
+
+  if (!venueId && shift.event_day_id) {
+    const { data: day } = await supabase
+      .from('event_days')
+      .select('event_id')
+      .eq('id', shift.event_day_id)
+      .maybeSingle()
+
+    if (day) {
+      const { data: event } = await supabase
+        .from('events')
+        .select('venue_id')
+        .eq('id', day.event_id)
+        .maybeSingle()
+      venueId = (event?.venue_id as string | null) ?? null
+    }
+  }
+
+  if (!venueId) return
+
+  const { data: venue } = await supabase
+    .from('venues')
+    .select('name, geo_lat, geo_lng')
+    .eq('id', venueId)
+    .maybeSingle()
+
+  if (!venue?.geo_lat || !venue?.geo_lng) return
+
+  if (lat === null || lng === null) {
+    errorRedirect('Enable location access to clock in and out of this shift.')
+  }
+
+  const distance = haversineMeters(lat, lng, venue.geo_lat, venue.geo_lng)
+  if (distance > settings.geofence_radius_meters) {
+    errorRedirect(
+      `You're too far from ${venue.name} to clock in (must be within ${settings.geofence_radius_meters}m).`
+    )
+  }
+}
+
 export async function clockIn(formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
@@ -134,11 +200,11 @@ export async function clockIn(formData: FormData) {
     errorRedirect('This day has already been submitted for approval.')
   }
 
-  // Geofencing checks against a job's geocoded address. A shift has no address
-  // of its own — the event's venue is free text, not coordinates — so there is
-  // nothing to fence against yet. Worth revisiting if venues get geocoded.
   if (jobId) {
     await checkGeofence(supabase, settings, jobId, lat, lng)
+  }
+  if (shiftId) {
+    await checkShiftGeofence(supabase, settings, shiftId, lat, lng)
   }
 
   // Coordinates are deliberately not persisted — checkGeofence above is the
@@ -206,6 +272,9 @@ export async function clockOut(entryId: string, formData: FormData) {
 
   if (entry?.job_id) {
     await checkGeofence(supabase, settings, entry.job_id, lat, lng)
+  }
+  if (entry?.shift_id) {
+    await checkShiftGeofence(supabase, settings, entry.shift_id, lat, lng)
   }
 
   const { error } = await supabase.rpc('clock_out_timesheet_entry', {

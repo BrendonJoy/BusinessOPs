@@ -4,6 +4,7 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getRosterContext, getShiftsInDateRange } from '@/lib/roster'
 import { formatDate, formatDayLabel, toYmd } from '@/lib/dates'
 import { Button, EmptyState, Field, Input, Notice, PageHeader, cardClasses } from '@/components/ui'
+import type { Venue } from '@trade-assist/db'
 import ShiftCard from './ShiftCard'
 import AddShiftForm from './AddShiftForm'
 
@@ -36,10 +37,12 @@ export default async function RosterPage({
     ? date!
     : toYmd(new Date(serverToday.getTime() + DAYS_AHEAD * 86_400_000))
 
-  const [roster, shifts] = await Promise.all([
+  const [roster, shifts, { data: venuesData }] = await Promise.all([
     getRosterContext(supabase),
     getShiftsInDateRange(supabase, from, to),
+    supabase.from('venues').select('*').order('name'),
   ])
+  const venues = (venuesData ?? []) as Venue[]
 
   const byDate = new Map<string, typeof shifts>()
   for (const shift of shifts) {
@@ -88,6 +91,7 @@ export default async function RosterPage({
             eventDayId={null}
             dayDate={isSingleDay ? date! : toYmd(serverToday)}
             departments={roster.manageable}
+            venues={venues}
             returnTo={returnTo}
           />
         </section>

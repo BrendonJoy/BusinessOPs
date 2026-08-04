@@ -124,11 +124,26 @@ export const EVENT_DAY_TYPE_LABELS: Record<EventDayType, string> = {
   pack_out: 'Pack-out',
 }
 
+/**
+ * A place work happens. Carries the coordinates shift clock-ins are fenced
+ * against — an event's venue used to be free text, which is a label rather than
+ * a location, and dark-day shifts have no event to borrow one from.
+ */
+export interface Venue {
+  id: string
+  company_id: string
+  name: string
+  address: string | null
+  geo_lat: number | null
+  geo_lng: number | null
+  created_at: string
+}
+
 export interface EventRecord {
   id: string
   company_id: string
   name: string
-  venue: string | null
+  venue_id: string | null
   notes: string | null
   created_at: string
 }
@@ -163,9 +178,13 @@ export interface Shift {
   company_id: string
   team_id: string
   event_day_id: string | null
+  /** Set directly on dark-day shifts; event shifts normally inherit the event's. */
+  venue_id: string | null
   title: string | null
   starts_at: string
   ends_at: string
+  /** The day the shift belongs to, as the venue means it. See migration 0038. */
+  local_date: string
   notes: string | null
   created_at: string
 }

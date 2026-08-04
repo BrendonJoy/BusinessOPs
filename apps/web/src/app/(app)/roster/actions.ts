@@ -58,6 +58,9 @@ export async function createShift(returnTo: string, formData: FormData) {
     company_id: profile.company_id,
     team_id: teamId,
     event_day_id: eventDayId,
+    // Only set on dark-day shifts. An event shift leaves it null and inherits
+    // the event's venue, so moving the event moves its shifts with it.
+    venue_id: String(formData.get('venue_id') ?? '').trim() || null,
     title: String(formData.get('title') ?? '').trim() || null,
     starts_at: startsAt,
     ends_at: endsAt,

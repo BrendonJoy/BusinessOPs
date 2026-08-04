@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireEventsModule } from '@/lib/events'
 import { EVENT_DAY_TYPES, EVENT_DAY_TYPE_LABELS } from '@trade-assist/db'
 import { Button, Field, Input, Notice, PageHeader, Select, Textarea } from '@/components/ui'
+import type { Venue } from '@trade-assist/db'
+import VenueSelect from '../VenueSelect'
 import { createEvent } from '../actions'
 
 export default async function NewEventPage({
@@ -13,6 +15,9 @@ export default async function NewEventPage({
   const { error } = await searchParams
   const supabase = await createClient()
   await requireEventsModule(supabase)
+
+  const { data: venuesData } = await supabase.from('venues').select('*').order('name')
+  const venues = (venuesData ?? []) as Venue[]
 
   return (
     <div className="mx-auto w-full max-w-xl">
@@ -29,9 +34,7 @@ export default async function NewEventPage({
           <Input id="name" name="name" type="text" required placeholder="Summer Festival" />
         </Field>
 
-        <Field label="Venue" htmlFor="venue" hint="Optional.">
-          <Input id="venue" name="venue" type="text" placeholder="Main Arena" />
-        </Field>
+        <VenueSelect venues={venues} />
 
         <div className="rounded-lg border border-surface-border p-3">
           <p className="mb-1 text-sm font-medium">First day</p>
