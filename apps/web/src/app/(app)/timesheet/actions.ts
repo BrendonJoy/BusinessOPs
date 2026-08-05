@@ -28,6 +28,34 @@ function parseHHMM(raw: string): { hours: number; minutes: number } | null {
   return { hours: Number(match[1]), minutes: Number(match[2]) }
 }
 
+/** Clock in and out may both be set up to this far either side of now. */
+const GRACE_MINUTES = 15
+
+/**
+ * Turns a bare HH:MM into the actual instant the person meant.
+ *
+ * Naively stamping the time onto today breaks either side of midnight, which is
+ * exactly when a pack-out crew is clocking off: at 00:05, "23:55" means five
+ * minutes ago, not twenty-three hours away. Anything landing more than twelve
+ * hours out is therefore pulled to the adjacent day.
+ */
+function nearestOccurrence(time: { hours: number; minutes: number }, now: Date): Date {
+  const candidate = new Date(now)
+  candidate.setHours(time.hours, time.minutes, 0, 0)
+
+  const HALF_DAY = 12 * 60 * 60 * 1000
+  const drift = candidate.getTime() - now.getTime()
+
+  if (drift > HALF_DAY) candidate.setDate(candidate.getDate() - 1)
+  else if (drift < -HALF_DAY) candidate.setDate(candidate.getDate() + 1)
+
+  return candidate
+}
+
+function withinGrace(when: Date, now: Date): boolean {
+  return Math.abs(when.getTime() - now.getTime()) <= GRACE_MINUTES * 60 * 1000
+}
+
 // Workday bounds come back from Postgres as HH:MM:SS; compare as HH:MM strings.
 function checkWorkday(settings: TimesheetSettings, when: Date, what: string): void {
   if (!settings.workday_enforced) return
@@ -173,12 +201,10 @@ export async function clockIn(formData: FormData) {
   if (!startTime) errorRedirect('Enter a valid start time.')
 
   const now = new Date()
-  const clockInDate = new Date(now)
-  clockInDate.setHours(startTime.hours, startTime.minutes, 0, 0)
+  const clockInDate = nearestOccurrence(startTime, now)
 
-  const earliestAllowed = new Date(now.getTime() - 15 * 60 * 1000)
-  if (clockInDate < earliestAllowed || clockInDate > now) {
-    errorRedirect('Start time must be within the last 15 minutes.')
+  if (!withinGrace(clockInDate, now)) {
+    errorRedirect(`Start time must be within ${GRACE_MINUTES} minutes of now, either side.`)
   }
 
   const settings = await getTimesheetSettings(supabase)
@@ -245,16 +271,13 @@ export async function clockOut(entryId: string, formData: FormData) {
   if (!finishTime) errorRedirect('Enter a valid finish time.')
 
   const now = new Date()
-  const clockOutDate = new Date(now)
-  clockOutDate.setHours(finishTime.hours, finishTime.minutes, 0, 0)
+  const clockOutDate = nearestOccurrence(finishTime, now)
 
-  // Forward-only grace: up to 15 minutes ahead of now. A one-minute tolerance
-  // behind now covers the minute truncation of the defaulted "now" value.
-  if (clockOutDate.getTime() < now.getTime() - 60 * 1000) {
-    errorRedirect("Finish time can't be in the past.")
-  }
-  if (clockOutDate.getTime() > now.getTime() + 15 * 60 * 1000) {
-    errorRedirect('Finish time can be at most 15 minutes ahead of the current time.')
+  // Both directions, matching clock-in. It used to be forward-only, which meant
+  // someone who finished at 23:00 and reached their phone at 23:10 could not
+  // record the time they actually stopped — they had to overstate it.
+  if (!withinGrace(clockOutDate, now)) {
+    errorRedirect(`Finish time must be within ${GRACE_MINUTES} minutes of now, either side.`)
   }
 
   const settings = await getTimesheetSettings(supabase)

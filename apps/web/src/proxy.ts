@@ -30,15 +30,25 @@ export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const csp = buildContentSecurityPolicy(nonce)
 
-  // Next.js discovers the nonce by parsing the CSP header on the *request*, so
-  // it has to be set on the forwarded request as well as the response. Built
-  // from `request.headers` at call time so that any cookies Supabase has just
-  // refreshed are already present — rebuilding it earlier would forward a stale
-  // session to the render and log people out on token refresh.
+  // Only `x-nonce` goes on the forwarded request. The CSP itself is set on the
+  // response alone.
+  //
+  // Next's own CSP guide puts the policy on the request headers too, and that
+  // breaks route resolution for any route with an interception slot: a direct
+  // load of /jobs/[id] returned a bare 404 in about 20ms, without ever running
+  // the page. Narrowed by elimination — forwarding `x-nonce` alone is fine, and
+  // adding `Content-Security-Policy` alongside it is what breaks it.
+  //
+  // Nothing is lost by leaving it off. Verified on a real render: every script
+  // tag still carries a nonce and it matches the one in the response header, so
+  // 'strict-dynamic' works exactly as before.
+  //
+  // Built from `request.headers` at call time so that any cookies Supabase has
+  // just refreshed are already present — rebuilding it earlier would forward a
+  // stale session to the render and log people out on token refresh.
   const forwardHeaders = () => {
     const headers = new Headers(request.headers)
     headers.set('x-nonce', nonce)
-    headers.set('Content-Security-Policy', csp)
     return headers
   }
 

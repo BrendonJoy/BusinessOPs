@@ -122,7 +122,7 @@ export default function ClockWidget({
               name="finish_time"
               type="time"
               value={finishTime ?? nowHHMM()}
-              min={nowHHMM()}
+              min={minutesAgoHHMM(15)}
               max={minutesAheadHHMM(15)}
               onChange={(e) => setFinishTime(e.target.value)}
               fullWidth={false}
@@ -188,7 +188,7 @@ export default function ClockWidget({
             type="time"
             value={startTime ?? nowHHMM()}
             min={minutesAgoHHMM(15)}
-            max={nowHHMM()}
+            max={minutesAheadHHMM(15)}
             onChange={(e) => setStartTime(e.target.value)}
             fullWidth={false}
           />

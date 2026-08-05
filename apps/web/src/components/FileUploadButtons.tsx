@@ -20,6 +20,14 @@ export default function FileUploadButtons({
 }) {
   const fileFormRef = useRef<HTMLFormElement>(null)
   const cameraFormRef = useRef<HTMLFormElement>(null)
+  // Refs to the file inputs themselves, rather than finding them from the form.
+  //
+  // This used to be `form.querySelector('input')`, which picked up the hidden
+  // `$ACTION_REF_*` input that Next injects into every server-action form — it
+  // sits ahead of ours in the DOM. So the button clicked that instead, the
+  // picker never opened, and both buttons appeared to do nothing at all.
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
 
   function submitOnPick(form: HTMLFormElement | null) {
@@ -34,17 +42,21 @@ export default function FileUploadButtons({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <form ref={fileFormRef} action={action}>
+        {/* sr-only rather than `hidden`: a display:none file input does not
+            reliably open the picker on iOS Safari, and this is used from a
+            phone on site more than from a desk. */}
         <input
+          ref={fileInputRef}
           type="file"
           name={inputName}
           accept={accept}
-          className="hidden"
+          className="sr-only"
           onChange={(e) => e.target.files?.length && submitOnPick(fileFormRef.current)}
         />
         <button
           type="button"
           disabled={isUploading}
-          onClick={() => fileFormRef.current?.querySelector('input')?.click()}
+          onClick={() => fileInputRef.current?.click()}
           className={buttonClass}
         >
           {isUploading ? 'Uploading…' : label}
@@ -54,17 +66,18 @@ export default function FileUploadButtons({
       {camera && (
         <form ref={cameraFormRef} action={action}>
           <input
+            ref={cameraInputRef}
             type="file"
             name={inputName}
             accept="image/*"
             capture="environment"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => e.target.files?.length && submitOnPick(cameraFormRef.current)}
           />
           <button
             type="button"
             disabled={isUploading}
-            onClick={() => cameraFormRef.current?.querySelector('input')?.click()}
+            onClick={() => cameraInputRef.current?.click()}
             className={buttonClass}
           >
             {isUploading ? 'Uploading…' : 'Take photo'}
