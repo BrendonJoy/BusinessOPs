@@ -125,6 +125,34 @@ export const EVENT_DAY_TYPE_LABELS: Record<EventDayType, string> = {
 }
 
 /**
+ * A product a company holds. Entitlements live on the company record — products
+ * are never separate apps or separate logins.
+ */
+export const PRODUCT_KEYS = ['businessops', 'staffops'] as const
+export type ProductKey = (typeof PRODUCT_KEYS)[number]
+
+export const PRODUCT_LABELS: Record<ProductKey, string> = {
+  businessops: 'BusinessOps',
+  staffops: 'StaffOps',
+}
+
+export type ProductStatus = 'trialing' | 'active' | 'past_due' | 'cancelled'
+
+export const PRODUCT_STATUS_LABELS: Record<ProductStatus, string> = {
+  trialing: 'Trial',
+  active: 'Active',
+  past_due: 'Payment overdue',
+  cancelled: 'Cancelled',
+}
+
+export interface CompanyProduct {
+  product: ProductKey
+  plan: string
+  status: ProductStatus
+  trial_ends_at: string | null
+}
+
+/**
  * A place work happens. Carries the coordinates shift clock-ins are fenced
  * against — an event's venue used to be free text, which is a label rather than
  * a location, and dark-day shifts have no event to borrow one from.

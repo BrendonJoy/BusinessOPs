@@ -4,9 +4,18 @@ import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatMoney } from '@/lib/money'
-import { CURRENCIES, PAY_CYCLE_LENGTHS, PAY_CYCLE_LENGTH_LABELS, WORKDAY_DAY_LABELS } from '@trade-assist/db'
+import {
+  CURRENCIES,
+  PAY_CYCLE_LENGTHS,
+  PAY_CYCLE_LENGTH_LABELS,
+  PRODUCT_LABELS,
+  PRODUCT_STATUS_LABELS,
+  WORKDAY_DAY_LABELS,
+} from '@trade-assist/db'
 import type { Company, CompanyInvite, PayType, Profile, StaffPermissions, Venue } from '@trade-assist/db'
 import { DELETION_GRACE_DAYS } from '@/lib/account-deletion'
+import { getCompanyProducts, isEntitled } from '@/lib/entitlements'
+import { formatDate, toYmd } from '@/lib/dates'
 import {
   regenerateCalendarToken,
   requestAccountDeletion,
@@ -116,9 +125,13 @@ export default async function SettingsPage({
     )
   }
 
+  const products = await getCompanyProducts(supabase)
+  const hasStaffOps = isEntitled(products, 'staffops')
+
   // Departments only matter once the events module is on — they exist to scope
-  // rostering and pay-rate visibility, neither of which BusinessOps has.
-  const eventsEnabled = company?.modules_events_enabled ?? false
+  // rostering and pay-rate visibility, neither of which BusinessOps has. Bought
+  // AND switched on, same rule as the nav and the routes.
+  const eventsEnabled = (company?.modules_events_enabled ?? false) && hasStaffOps
 
   let departments: { id: string; name: string }[] = []
   let memberships: { team_id: string; profile_id: string; role: 'manager' | 'staff' }[] = []
@@ -415,14 +428,20 @@ export default async function SettingsPage({
               />
               Timesheets
             </label>
-            <label className="flex items-center gap-1.5">
+            {/* Disabled rather than hidden when it isn't on the plan. A missing
+                checkbox reads as "this doesn't exist"; a disabled one with a
+                reason reads as "this is available, you don't have it" — and
+                stops someone hunting for a setting that would not have helped. */}
+            <label className={`flex items-center gap-1.5 ${hasStaffOps ? '' : 'opacity-60'}`}>
               <input
                 type="checkbox"
                 name="modules_events_enabled"
                 defaultChecked={company?.modules_events_enabled ?? false}
+                disabled={!hasStaffOps}
                 className={checkboxClasses()}
               />
               Events &amp; rostering
+              {!hasStaffOps && <span className="text-xs text-muted">— not on your plan</span>}
             </label>
           </div>
           <button
@@ -713,6 +732,35 @@ export default async function SettingsPage({
           </button>
         </form>
       </section>
+
+      {isCompany && (
+      <section className={cardClasses()}>
+        <h2 className="mb-1 text-sm font-medium">Your plan</h2>
+        <p className="mb-3 text-sm text-muted">
+          What this account has. Switching a module off hides it without affecting what you pay;
+          what you hold here is what you can switch on at all.
+        </p>
+        <ul className="flex flex-col gap-2">
+          {products.length === 0 ? (
+            <li className="text-sm text-muted">No products on this account.</li>
+          ) : (
+            products.map((held) => (
+              <li
+                key={held.product}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-surface-border px-3 py-2 text-sm"
+              >
+                <span className="font-medium">{PRODUCT_LABELS[held.product]}</span>
+                <span className="flex items-center gap-2 text-xs text-muted">
+                  {held.status === 'trialing' && held.trial_ends_at
+                    ? `Trial — ends ${formatDate(toYmd(new Date(held.trial_ends_at)))}`
+                    : PRODUCT_STATUS_LABELS[held.status]}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
+      )}
 
       {isCompany && eventsEnabled && (
       <section className={cardClasses()}>

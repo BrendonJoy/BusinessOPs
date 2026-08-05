@@ -4,6 +4,7 @@ import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules } from '@/lib/company'
 import { getDeletionState } from '@/lib/account-deletion'
+import { eventsAvailable } from '@/lib/events'
 import { formatDate, toYmd } from '@/lib/dates'
 import { Button, Notice, buttonClasses, cardClasses } from '@/components/ui'
 import NavMenu from '@/components/NavMenu'
@@ -25,6 +26,7 @@ export default async function AppLayout({
   const profile = await getCurrentProfile(supabase)
   const modules = await getCompanyModules(supabase)
   const deletion = await getDeletionState(supabase)
+  const eventsEnabled = await eventsAvailable(supabase)
 
   // Closed the moment deletion is requested, for everyone in the company, not
   // just the person who asked. Gating here rather than per-page means a route
@@ -92,7 +94,7 @@ export default async function AppLayout({
             reportsModuleEnabled={modules.modules_reports_enabled}
             expensesModuleEnabled={modules.modules_expenses_enabled}
             timesheetsModuleEnabled={modules.modules_timesheets_enabled}
-            eventsModuleEnabled={modules.modules_events_enabled}
+            eventsModuleEnabled={eventsEnabled}
           />
         </div>
       </header>
