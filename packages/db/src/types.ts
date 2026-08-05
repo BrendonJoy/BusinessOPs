@@ -185,8 +185,28 @@ export interface Shift {
   ends_at: string
   /** The day the shift belongs to, as the venue means it. See migration 0038. */
   local_date: string
+  positions_needed: number
+  /** Whether anyone in the department may volunteer, or the manager fills it by name. */
+  open_to_department: boolean
   notes: string | null
   created_at: string
+}
+
+/**
+ * Where a person stands on a shift.
+ *
+ * 'available' and 'confirmed' are deliberately different: more people can offer
+ * than there are places, which is the entire point of an open call, so saying
+ * yes is not the same as being on the roster.
+ */
+export const SHIFT_ASSIGNMENT_STATUSES = ['invited', 'available', 'declined', 'confirmed'] as const
+export type ShiftAssignmentStatus = (typeof SHIFT_ASSIGNMENT_STATUSES)[number]
+
+export const SHIFT_ASSIGNMENT_STATUS_LABELS: Record<ShiftAssignmentStatus, string> = {
+  invited: 'Asked',
+  available: 'Available',
+  declined: 'Declined',
+  confirmed: 'Confirmed',
 }
 
 export type TimesheetMiscCategory = 'travel' | 'admin' | 'break' | 'other'

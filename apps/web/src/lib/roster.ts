@@ -1,9 +1,12 @@
 import type { createClient } from '@/lib/supabase/server'
+import type { ShiftAssignmentStatus } from '@trade-assist/db'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 export type RosterPerson = { id: string; name: string }
+
+export type RosterAssignment = RosterPerson & { status: ShiftAssignmentStatus }
 
 export type RosterShift = {
   id: string
@@ -17,8 +20,11 @@ export type RosterShift = {
   endsAt: string
   /** The day the shift belongs to, as the venue means it. See migration 0038. */
   localDate: string
+  positionsNeeded: number
+  openToDepartment: boolean
   notes: string | null
-  assigned: RosterPerson[]
+  /** Everyone attached to the shift, whatever their answer. */
+  assigned: RosterAssignment[]
 }
 
 export type RosterContext = {
@@ -125,10 +131,14 @@ export async function getClockableShifts(
   const from = new Date(now - 12 * 60 * 60 * 1000).toISOString()
   const to = new Date(now + 12 * 60 * 60 * 1000).toISOString()
 
+  // Confirmed only. Being asked, or having said you are free, is not the same
+  // as being on the roster — clocking in against a shift someone else was given
+  // would put hours against work they did.
   const { data: assignmentData } = await supabase
     .from('shift_assignments')
     .select('shift_id')
     .eq('profile_id', profileId)
+    .eq('status', 'confirmed')
 
   const shiftIds = ((assignmentData ?? []) as { shift_id: string }[]).map((a) => a.shift_id)
   if (shiftIds.length === 0) return []
@@ -190,7 +200,8 @@ export async function getClockableShifts(
   }))
 }
 
-const SHIFT_COLUMNS = 'id, team_id, event_day_id, title, starts_at, ends_at, local_date, notes'
+const SHIFT_COLUMNS =
+  'id, team_id, event_day_id, title, starts_at, ends_at, local_date, notes, positions_needed, open_to_department'
 
 type ShiftRow = {
   id: string
@@ -201,6 +212,8 @@ type ShiftRow = {
   ends_at: string
   local_date: string
   notes: string | null
+  positions_needed: number
+  open_to_department: boolean
 }
 
 /**
@@ -248,6 +261,45 @@ export async function getShiftsInDateRange(
   return hydrateShifts(supabase, (data ?? []) as ShiftRow[])
 }
 
+/**
+ * Shifts this person is being asked about, and open calls they could offer for.
+ *
+ * Deliberately only forward-looking. A shift that has already run cannot be
+ * answered usefully, and a list that keeps yesterday's unanswered asks in it
+ * stops being something anyone reads.
+ */
+export async function getShiftsAwaitingResponse(
+  supabase: SupabaseClient,
+  profileId: string
+): Promise<{ shift: RosterShift; myStatus: ShiftAssignmentStatus | null }[]> {
+  const today = new Date()
+  const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  const { data } = await supabase
+    .from('shifts')
+    .select(SHIFT_COLUMNS)
+    .gte('local_date', from)
+    .order('local_date')
+    .order('starts_at')
+
+  // RLS has already limited this to departments the person belongs to.
+  const shifts = await hydrateShifts(supabase, (data ?? []) as ShiftRow[])
+
+  return shifts
+    .map((shift) => ({
+      shift,
+      myStatus: shift.assigned.find((p) => p.id === profileId)?.status ?? null,
+    }))
+    .filter(({ shift, myStatus }) => {
+      // Already settled either way — nothing left to answer.
+      if (myStatus === 'confirmed' || myStatus === 'declined') return false
+      // Asked directly, or an open call they have not answered yet.
+      if (myStatus === 'invited') return true
+      if (myStatus === 'available') return true
+      return shift.openToDepartment
+    })
+}
+
 /** Attaches department names, event names and who is rostered on. */
 async function hydrateShifts(
   supabase: SupabaseClient,
@@ -258,7 +310,7 @@ async function hydrateShifts(
   const [{ data: assignmentData }, { data: teamsData }] = await Promise.all([
     supabase
       .from('shift_assignments')
-      .select('shift_id, profile_id')
+      .select('shift_id, profile_id, status')
       .in(
         'shift_id',
         shifts.map((s) => s.id)
@@ -266,7 +318,11 @@ async function hydrateShifts(
     supabase.from('teams').select('id, name'),
   ])
 
-  const assignments = (assignmentData ?? []) as { shift_id: string; profile_id: string }[]
+  const assignments = (assignmentData ?? []) as {
+    shift_id: string
+    profile_id: string
+    status: ShiftAssignmentStatus
+  }[]
   const teamName = new Map(
     ((teamsData ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name])
   )
@@ -283,10 +339,14 @@ async function hydrateShifts(
     ])
   )
 
-  const byShift = new Map<string, RosterPerson[]>()
+  const byShift = new Map<string, RosterAssignment[]>()
   for (const assignment of assignments) {
     const list = byShift.get(assignment.shift_id) ?? []
-    list.push({ id: assignment.profile_id, name: nameById.get(assignment.profile_id) ?? 'Unknown' })
+    list.push({
+      id: assignment.profile_id,
+      name: nameById.get(assignment.profile_id) ?? 'Unknown',
+      status: assignment.status,
+    })
     byShift.set(assignment.shift_id, list)
   }
 
@@ -322,7 +382,20 @@ async function hydrateShifts(
     startsAt: shift.starts_at,
     endsAt: shift.ends_at,
     localDate: shift.local_date,
+    positionsNeeded: shift.positions_needed,
+    openToDepartment: shift.open_to_department,
     notes: shift.notes,
-    assigned: (byShift.get(shift.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+    // Confirmed first, then those who offered, then unanswered, then declines —
+    // which is the order a manager filling the shift actually reads them in.
+    assigned: (byShift.get(shift.id) ?? []).sort(
+      (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name)
+    ),
   }))
+}
+
+const STATUS_ORDER: Record<ShiftAssignmentStatus, number> = {
+  confirmed: 0,
+  available: 1,
+  invited: 2,
+  declined: 3,
 }

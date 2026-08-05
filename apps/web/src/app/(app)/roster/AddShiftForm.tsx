@@ -1,4 +1,4 @@
-import { Button, Field, Input, Select } from '@/components/ui'
+import { Button, Field, Input, Select, checkboxClasses } from '@/components/ui'
 import type { Venue } from '@trade-assist/db'
 import ShiftTimeFields from './ShiftTimeFields'
 import { createShift } from './actions'
@@ -54,6 +54,18 @@ export default function AddShiftForm({
         <Input id={`title-${idPrefix}`} name="title" type="text" placeholder="Bar" className="sm:w-36" />
       </Field>
 
+      <Field label="People needed" htmlFor={`needed-${idPrefix}`}>
+        <Input
+          id={`needed-${idPrefix}`}
+          name="positions_needed"
+          type="number"
+          min="1"
+          step="1"
+          defaultValue={1}
+          className="sm:w-24"
+        />
+      </Field>
+
       {!eventDayId && venues.length > 0 && (
         <Field label="Venue" htmlFor={`venue-${idPrefix}`} hint="For geofencing.">
           <Select id={`venue-${idPrefix}`} name="venue_id" fullWidth={false} className="sm:w-40">
@@ -73,6 +85,14 @@ export default function AddShiftForm({
         defaultStart={`${dayDate}T09:00`}
         defaultEnd={`${dayDate}T17:00`}
       />
+
+      {/* An open call is how a shift needing ten gets filled from a pool of
+          thirty — everyone in the department sees it and can offer, and the
+          manager confirms who actually works it. */}
+      <label className="flex items-center gap-1.5 self-end pb-2 text-xs">
+        <input type="checkbox" name="open_to_department" className={checkboxClasses()} />
+        Open to the whole department
+      </label>
 
       <Button type="submit">Add shift</Button>
     </form>

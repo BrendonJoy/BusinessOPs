@@ -46,6 +46,9 @@ export async function createShift(returnTo: string, formData: FormData) {
 
   const eventDayId = String(formData.get('event_day_id') ?? '') || null
 
+  const positionsNeeded = Math.max(1, Math.floor(Number(formData.get('positions_needed') ?? 1) || 1))
+  const openToDepartment = formData.get('open_to_department') === 'on'
+
   // Sent by the client rather than derived here — see migration 0038. Rejected
   // outright if missing, because a silent fallback to the server's today would
   // file shifts under the wrong day for anyone not on UTC.
@@ -65,6 +68,8 @@ export async function createShift(returnTo: string, formData: FormData) {
     starts_at: startsAt,
     ends_at: endsAt,
     local_date: localDate,
+    positions_needed: positionsNeeded,
+    open_to_department: openToDepartment,
     notes: String(formData.get('notes') ?? '').trim() || null,
   })
 
@@ -93,26 +98,84 @@ export async function deleteShift(returnTo: string, shiftId: string) {
 export async function assignToShift(returnTo: string, shiftId: string, formData: FormData) {
   const { supabase } = await requireProfile()
 
-  const profileId = String(formData.get('profile_id') ?? '')
-  if (!profileId) errorRedirect(returnTo, 'Choose someone to roster on.')
+  // Several at once: a bar call is ten or fifteen people out of a pool of
+  // thirty, and adding them one at a time was the first thing to become
+  // tedious in real use.
+  const profileIds = formData.getAll('profile_id').map(String).filter(Boolean)
+  if (profileIds.length === 0) errorRedirect(returnTo, 'Choose at least one person.')
 
-  const { error } = await supabase
-    .from('shift_assignments')
-    .insert({ shift_id: shiftId, profile_id: profileId })
+  const { error } = await supabase.from('shift_assignments').upsert(
+    profileIds.map((profileId) => ({
+      shift_id: shiftId,
+      profile_id: profileId,
+      status: 'invited',
+    })),
+    // Someone already asked, or who has already answered, must not be reset to
+    // 'invited' by a second pass over the same shift.
+    { onConflict: 'shift_id,profile_id', ignoreDuplicates: true }
+  )
 
   if (error) {
-    // Two people can open the same roster and pick the same name; the primary
-    // key catches it, and "already on" is the truth rather than an error.
-    if (error.code === '23505') {
-      revalidatePath(returnTo)
-      return
-    }
     const message =
       error.code === '42501'
         ? 'You can only roster onto a department you manage.'
         : error.message
     errorRedirect(returnTo, message)
   }
+
+  revalidatePath(returnTo)
+}
+
+export async function setAssignmentStatus(
+  returnTo: string,
+  shiftId: string,
+  profileId: string,
+  status: 'confirmed' | 'invited'
+) {
+  const { supabase } = await requireProfile()
+
+  const { error } = await supabase
+    .from('shift_assignments')
+    .update({ status, confirmed_at: status === 'confirmed' ? new Date().toISOString() : null })
+    .eq('shift_id', shiftId)
+    .eq('profile_id', profileId)
+
+  if (error) {
+    const message =
+      error.code === '42501' ? 'You can only change a department you manage.' : error.message
+    errorRedirect(returnTo, message)
+  }
+
+  revalidatePath(returnTo)
+}
+
+export async function setShiftOpen(returnTo: string, shiftId: string, open: boolean) {
+  const { supabase } = await requireProfile()
+
+  const { error } = await supabase
+    .from('shifts')
+    .update({ open_to_department: open })
+    .eq('id', shiftId)
+
+  if (error) errorRedirect(returnTo, error.message)
+
+  revalidatePath(returnTo)
+}
+
+/**
+ * A staff member's own answer. Goes through the RPC rather than a direct write,
+ * because RLS filters rows and not columns — a direct update path would let
+ * someone set their own status to 'confirmed' and roster themselves on.
+ */
+export async function respondToShift(returnTo: string, shiftId: string, available: boolean) {
+  const { supabase } = await requireProfile()
+
+  const { error } = await supabase.rpc('respond_to_shift', {
+    p_shift_id: shiftId,
+    p_available: available,
+  })
+
+  if (error) errorRedirect(returnTo, error.message)
 
   revalidatePath(returnTo)
 }
