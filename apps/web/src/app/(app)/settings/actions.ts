@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { PAY_CYCLE_LENGTHS, type PayCycleLength } from '@trade-assist/db'
+import { isValidTimezone } from '@/lib/timezone'
 
 function errorRedirect(message: string): never {
   redirect(`/settings?error=${encodeURIComponent(message)}`)
@@ -35,10 +36,18 @@ export async function updateCompany(formData: FormData) {
   const gstRegistered = formData.get('gst_registered') === 'on'
   const paymentDetails = String(formData.get('payment_details') ?? '').trim() || null
   const jobPrefix = String(formData.get('job_prefix') ?? '').trim()
+  const timezone = String(formData.get('timezone') ?? '').trim()
 
   if (!name) errorRedirect('Company name is required.')
   if (!jobPrefix || jobPrefix.length > 10) {
     errorRedirect('Job number prefix must be 1–10 characters.')
+  }
+  // Refused rather than silently ignored. Storing an unknown name would make
+  // Intl.DateTimeFormat throw on the roster and the calendar for everyone in
+  // the company, so this is the last place to catch it in the UI — the database
+  // rejects it too.
+  if (timezone && !isValidTimezone(timezone)) {
+    errorRedirect(`"${timezone}" is not a timezone we recognise.`)
   }
 
   const { error } = await supabase
@@ -53,6 +62,10 @@ export async function updateCompany(formData: FormData) {
       gst_registered: gstRegistered,
       payment_details: paymentDetails,
       job_prefix: jobPrefix,
+      // Left alone when the field submits nothing, which is what a browser with
+      // no detected zone does. Writing null would violate the not-null column;
+      // writing a guess would be worse.
+      ...(timezone ? { timezone } : {}),
     })
     .eq('id', companyId)
 

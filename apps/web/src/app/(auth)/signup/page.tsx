@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { Button, Field, Input, Notice, checkboxClasses } from '@/components/ui'
 import { POLICY_PATHS } from '@/lib/policies'
+import { allTimezones } from '@/lib/timezone'
+import TimezoneSelect from '@/components/TimezoneSelect'
 import { signup } from './actions'
 
 export default async function SignupPage({
@@ -40,6 +42,16 @@ export default async function SignupPage({
             minLength={8}
             autoComplete="new-password"
           />
+        </Field>
+        {/* Detected rather than asked, but shown rather than hidden. This is the
+            zone every time in the account is read in, and it is easier to set
+            now than to work out later why a shift says 4am. */}
+        <Field
+          label="Timezone"
+          htmlFor="timezone"
+          hint="Where your business operates. You can change this in Settings."
+        >
+          <TimezoneSelect id="timezone" zones={allTimezones()} />
         </Field>
         {/* Unticked by default and required. A pre-ticked box is not agreement,
             and the whole point of the acceptance record is that it means

@@ -1,62 +1,44 @@
-'use client'
-
-import { useSyncExternalStore } from 'react'
-
-const LOCALE = 'en-NZ'
-
-const noop = () => () => {}
+import { formatInZone } from '@/lib/timezone'
 
 /**
- * Renders a stored instant in the *viewer's* timezone.
+ * Renders a stored instant in the *company's* zone.
  *
- * Shift times are timestamptz. Formatting them during the server render would
- * use the server's zone — UTC on Vercel — so a shift starting at 4pm in
- * Auckland would render as 4am, on the previous day. Formatting has to happen
- * in the browser.
+ * This used to render in the viewer's zone, which meant it could not run on the
+ * server at all: formatting a shift during SSR would have used Vercel's UTC and
+ * shown a 4pm Auckland call as 4am on the previous day, so the server render was
+ * deliberately blanked and the real time appeared on hydration.
  *
- * The server snapshot is deliberately empty rather than a UTC-formatted string.
- * A blank that fills in on hydration is honest; a wrong time that silently
- * corrects itself is worse, because anyone reading quickly believes the first
- * value. It also avoids a hydration mismatch, since the two renders agree that
- * the server produced nothing.
- *
- * `useSyncExternalStore` rather than an effect: setting state in an effect for
- * this trips `react-hooks/set-state-in-effect`, and this is the pattern already
- * used elsewhere in the app for browser-only values.
+ * With the zone stored on the company (migration 0043) both renders agree, so
+ * the blank is gone — and, more importantly, two people looking at the same
+ * shift from different countries now read the same time. A roster is a shared
+ * document; "4pm" has to mean one thing.
  */
-function useIsClient(): boolean {
-  return useSyncExternalStore(
-    noop,
-    () => true,
-    () => false
-  )
-}
 
 export type LocalTimeFormat = 'time' | 'datetime' | 'date'
 
+// hourCycle 'h23' rather than hour12:false, which can render midnight as 24:00.
 const OPTIONS: Record<LocalTimeFormat, Intl.DateTimeFormatOptions> = {
-  time: { hour: '2-digit', minute: '2-digit', hour12: false },
+  time: { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
   datetime: {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   },
   date: { weekday: 'short', day: 'numeric', month: 'short' },
 }
 
 export default function LocalTime({
   iso,
+  zone,
   format = 'time',
 }: {
   iso: string
+  zone: string
   format?: LocalTimeFormat
 }) {
-  const isClient = useIsClient()
-  if (!isClient) return <span className="opacity-0">--:--</span>
-
-  return <span>{new Date(iso).toLocaleString(LOCALE, OPTIONS[format])}</span>
+  return <span>{formatInZone(iso, zone, OPTIONS[format])}</span>
 }
 
 /**
@@ -64,20 +46,27 @@ export default function LocalTime({
  * day. The trailing date is not decoration: a pack-out crew needs to see that
  * the shift they are reading runs past midnight.
  */
-export function LocalTimeRange({ start, end }: { start: string; end: string }) {
-  const isClient = useIsClient()
-  if (!isClient) return <span className="opacity-0">--:-- – --:--</span>
-
-  const from = new Date(start)
-  const to = new Date(end)
-  const sameDay = from.toDateString() === to.toDateString()
+export function LocalTimeRange({
+  start,
+  end,
+  zone,
+}: {
+  start: string
+  end: string
+  zone: string
+}) {
+  // Compared as dates *in the company's zone*, not as instants. A shift running
+  // 20:00 to 02:00 spans midnight there while a UTC comparison might put both
+  // ends on the same day, which is exactly when the crew needs telling.
+  const dayOf = (iso: string) => formatInZone(iso, zone, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const sameDay = dayOf(start) === dayOf(end)
 
   return (
     <span>
-      {from.toLocaleString(LOCALE, OPTIONS.time)} – {to.toLocaleString(LOCALE, OPTIONS.time)}
+      {formatInZone(start, zone, OPTIONS.time)} – {formatInZone(end, zone, OPTIONS.time)}
       {!sameDay && (
         <span className="ml-1 text-muted">
-          ({to.toLocaleString(LOCALE, { day: 'numeric', month: 'short' })})
+          ({formatInZone(end, zone, { day: 'numeric', month: 'short' })})
         </span>
       )}
     </span>

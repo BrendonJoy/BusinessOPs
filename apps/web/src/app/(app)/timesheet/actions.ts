@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/roles'
-import { getTimesheetSettings, type TimesheetSettings } from '@/lib/company'
+import { getCompanyTimezone, getTimesheetSettings, type TimesheetSettings } from '@/lib/company'
+import { wallClockToInstant } from '@/lib/timezone'
+import { addDaysToYmd } from '@/lib/dates'
 import { haversineMeters } from '@/lib/geo'
 import { TIMESHEET_MISC_CATEGORIES, type TimesheetMiscCategory } from '@trade-assist/db'
 
@@ -318,17 +320,26 @@ export async function submitDay(formData: FormData) {
   if (!profile) redirect('/login')
 
   const workDate = String(formData.get('work_date') ?? '')
-  const tzOffsetMinutes = Number(formData.get('tz_offset_minutes') ?? NaN)
-
   if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) errorRedirect('Invalid day.')
-  if (!Number.isFinite(tzOffsetMinutes) || Math.abs(tzOffsetMinutes) > 14 * 60) {
-    errorRedirect('Invalid timezone offset.')
-  }
 
-  // The staff device's local day, expressed as a UTC window:
-  // getTimezoneOffset() returns UTC minus local, so UTC = local + offset.
-  const windowStart = new Date(new Date(`${workDate}T00:00:00Z`).getTime() + tzOffsetMinutes * 60 * 1000)
-  const windowEnd = new Date(windowStart.getTime() + 24 * 60 * 60 * 1000)
+  /*
+   * The working day as a UTC window, built from the company's zone.
+   *
+   * This used to come from the submitting device's UTC offset. That put a day's
+   * boundaries wherever the phone happened to be, so the same day submitted from
+   * a different country covered a different span of hours — and the hours in the
+   * gap were simply not submitted, silently.
+   *
+   * The end is computed from the next calendar date rather than by adding 24
+   * hours, so the two days a year that are 23 or 25 hours long still work.
+   */
+  const zone = await getCompanyTimezone(supabase)
+  const startIso = wallClockToInstant(zone, workDate, '00:00')
+  const endIso = wallClockToInstant(zone, addDaysToYmd(workDate, 1), '00:00')
+  if (!startIso || !endIso) errorRedirect('Invalid day.')
+
+  const windowStart = new Date(startIso)
+  const windowEnd = new Date(endIso)
 
   const { error } = await supabase.rpc('submit_timesheet_day', {
     p_work_date: workDate,

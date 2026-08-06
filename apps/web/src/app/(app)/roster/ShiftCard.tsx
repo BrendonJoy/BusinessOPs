@@ -52,7 +52,8 @@ export default function ShiftCard({
             {shift.title && <span className="ml-2 text-xs text-muted">{shift.teamName}</span>}
           </p>
           <p className="text-sm text-muted">
-            <LocalTimeRange start={shift.startsAt} end={shift.endsAt} />
+            {/* The venue's clock, carried on the shift — not the reader's. */}
+            <LocalTimeRange start={shift.startsAt} end={shift.endsAt} zone={shift.zone} />
           </p>
           {shift.notes && <p className="mt-1 text-xs text-muted">{shift.notes}</p>}
         </div>

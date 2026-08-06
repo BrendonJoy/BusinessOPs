@@ -52,6 +52,19 @@ export function toYmd(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * Calendar arithmetic on a `YYYY-MM-DD`, staying in that form.
+ *
+ * Done in UTC and read back with `toISOString`, so the answer does not depend on
+ * the runtime's zone. Building a local Date and reading `getDate()` looks
+ * equivalent and is not: on a machine behind UTC it lands on the previous day.
+ * Month and year rollover come free from `Date.UTC`.
+ */
+export function addDaysToYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+
 /** "5/08/2026" — the date part of a full ISO timestamp (created_at, superseded_at). */
 export function formatTimestampDate(iso: string | null | undefined, fallback = '—'): string {
   if (!iso) return fallback

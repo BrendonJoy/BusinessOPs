@@ -21,6 +21,8 @@ export type CalendarShift = {
   eventName: string | null
   startsAt: string
   endsAt: string
+  /** The venue's zone, resolved when the shift was loaded. Not the reader's. */
+  zone: string
   assignedCount: number
 }
 
@@ -245,7 +247,7 @@ export default function CalendarGrid({
                   >
                     <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-accent" />
                     <span className="shrink-0 tabular-nums text-muted">
-                      <LocalTime iso={shift.startsAt} format="time" />
+                      <LocalTime iso={shift.startsAt} zone={shift.zone} format="time" />
                     </span>
                     <span className="min-w-0 flex-1 truncate">
                       {shift.title ?? shift.teamName}
@@ -393,7 +395,7 @@ export default function CalendarGrid({
                         title={`${shift.title ?? shift.teamName}${shift.eventName ? ` — ${shift.eventName}` : ''} · ${shift.assignedCount} rostered`}
                       >
                         <span className="mr-1 font-medium tabular-nums">
-                          <LocalTime iso={shift.startsAt} format="time" />
+                          <LocalTime iso={shift.startsAt} zone={shift.zone} format="time" />
                         </span>
                         {shift.title ?? shift.teamName}
                       </Link>

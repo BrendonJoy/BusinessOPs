@@ -7,6 +7,7 @@ import { createJobRecord } from '@/lib/job-create'
 import { logJobAudit } from '@/lib/audit'
 import { planRoute, applyRoute } from '@/app/(app)/calendar/route-actions'
 import { eventsAvailable } from '@/lib/events'
+import { DEFAULT_TIMEZONE, todayInZone } from '@/lib/timezone'
 import {
   STAFFOPS_TOOLS,
   executeStaffOpsTool,
@@ -335,7 +336,7 @@ async function executeTool(
 }
 
 function buildSystemPrompt(profile: Profile, clock: ChatClock, staffOps: boolean): string {
-  // The user's own date, not the server's. At 9am in Auckland the server is
+  // The business's date, not the server's. At 9am in Auckland the server is
   // still on yesterday, and an assistant that books "tomorrow" a day early is
   // worse than one that refuses.
   const today = clock.localDate
@@ -364,7 +365,7 @@ export async function runChatAgent(
   supabase: SupabaseClient,
   profile: Profile,
   userMessage: string,
-  clock: ChatClock = { tzOffsetMinutes: 0, localDate: new Date().toISOString().slice(0, 10) }
+  clock: ChatClock = { zone: DEFAULT_TIMEZONE, localDate: todayInZone(DEFAULT_TIMEZONE) }
 ): Promise<{ reply: string }> {
   await supabase.from('chat_messages').insert({
     company_id: profile.company_id,
@@ -421,7 +422,7 @@ export async function runChatAgent(
           // StaffOps tools first; it returns null for anything it does not own,
           // which falls through to the BusinessOps set.
           const result =
-            (staffOps ? await executeStaffOpsTool(supabase, profile, block.name, input, clock) : null) ??
+            (staffOps ? await executeStaffOpsTool(supabase, profile, block.name, input) : null) ??
             (await executeTool(supabase, profile, block.name, input))
           toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
         }

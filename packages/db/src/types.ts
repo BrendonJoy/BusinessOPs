@@ -32,6 +32,12 @@ export interface Company {
   job_prefix: string
   pay_cycle_length: PayCycleLength
   pay_cycle_anchor: string | null
+  /**
+   * IANA name, e.g. 'Pacific/Auckland'. The zone the business works in — what
+   * times are shown in and what typed times are read as. Not the reader's zone:
+   * a shift starts at 4pm at the venue wherever the person looking at it is.
+   */
+  timezone: string
   created_at: string
 }
 
@@ -164,6 +170,8 @@ export interface Venue {
   address: string | null
   geo_lat: number | null
   geo_lng: number | null
+  /** IANA name, or null to use the company's. Only set for a venue in another zone. */
+  timezone: string | null
   created_at: string
 }
 

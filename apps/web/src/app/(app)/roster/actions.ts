@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/roles'
+import { resolveShiftTimezone } from '@/lib/company'
+import { localInputToInstant } from '@/lib/timezone'
 
 function errorRedirect(returnTo: string, message: string): never {
   redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}error=${encodeURIComponent(message)}`)
@@ -16,43 +18,47 @@ async function requireProfile() {
   return { supabase, profile }
 }
 
-/**
- * Times arrive as full ISO instants, converted from the browser's wall clock by
- * ShiftTimeFields. A `datetime-local` value carries no timezone, so posting the
- * raw "2026-09-10T18:00" and letting Postgres read it would interpret it in the
- * server's zone — UTC in production — and quietly move every shift by the
- * offset. A pack-out that finishes at 2am is exactly where that goes wrong.
- */
-function parseInstant(value: FormDataEntryValue | null): string | null {
-  const raw = String(value ?? '').trim()
-  if (!raw) return null
-  const date = new Date(raw)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
 export async function createShift(returnTo: string, formData: FormData) {
   const { supabase, profile } = await requireProfile()
 
   const teamId = String(formData.get('team_id') ?? '')
   if (!teamId) errorRedirect(returnTo, 'Choose a department for the shift.')
 
-  const startsAt = parseInstant(formData.get('starts_at'))
-  const endsAt = parseInstant(formData.get('ends_at'))
+  const eventDayId = String(formData.get('event_day_id') ?? '') || null
+  // Only set on dark-day shifts. An event shift leaves it null and inherits the
+  // event's venue, so moving the event moves its shifts with it.
+  const venueId = String(formData.get('venue_id') ?? '').trim() || null
+
+  /*
+   * The pickers submit bare wall clock ("2026-09-26T16:00"), which carries no
+   * zone at all, and it is resolved here against the venue's. Doing it in the
+   * browser used the device's zone — right at the venue, wrong from anywhere
+   * else — and letting Postgres read the bare string would use the server's,
+   * which is UTC in production and moves every shift by half a day in NZ.
+   *
+   * Resolved through the same helper the display side uses, so a shift is read
+   * back in the zone it was written in.
+   */
+  const zone = await resolveShiftTimezone(supabase, { venueId, eventDayId })
+  const startsLocal = String(formData.get('starts_local') ?? '').trim()
+  const endsLocal = String(formData.get('ends_local') ?? '').trim()
+
+  const startsAt = localInputToInstant(zone, startsLocal)
+  const endsAt = localInputToInstant(zone, endsLocal)
   if (!startsAt || !endsAt) errorRedirect(returnTo, 'Give the shift a start and finish time.')
 
   if (new Date(endsAt) <= new Date(startsAt)) {
     errorRedirect(returnTo, 'The finish time has to be after the start time.')
   }
 
-  const eventDayId = String(formData.get('event_day_id') ?? '') || null
-
   const positionsNeeded = Math.max(1, Math.floor(Number(formData.get('positions_needed') ?? 1) || 1))
   const openToDepartment = formData.get('open_to_department') === 'on'
 
-  // Sent by the client rather than derived here — see migration 0038. Rejected
-  // outright if missing, because a silent fallback to the server's today would
-  // file shifts under the wrong day for anyone not on UTC.
-  const localDate = String(formData.get('local_date') ?? '').trim()
+  // The date half of what was typed, taken verbatim — see migration 0038. This
+  // is the day the shift belongs to for rostering, and a pack-out running 20:00
+  // to 02:00 is Saturday's shift rather than Sunday's, so it must not be derived
+  // from the instant by whichever zone happens to be doing the deriving.
+  const localDate = startsLocal.slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
     errorRedirect(returnTo, 'Could not read the shift date. Refresh and try again.')
   }
@@ -61,9 +67,7 @@ export async function createShift(returnTo: string, formData: FormData) {
     company_id: profile.company_id,
     team_id: teamId,
     event_day_id: eventDayId,
-    // Only set on dark-day shifts. An event shift leaves it null and inherits
-    // the event's venue, so moving the event moves its shifts with it.
-    venue_id: String(formData.get('venue_id') ?? '').trim() || null,
+    venue_id: venueId,
     title: String(formData.get('title') ?? '').trim() || null,
     starts_at: startsAt,
     ends_at: endsAt,

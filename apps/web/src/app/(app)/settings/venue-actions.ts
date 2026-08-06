@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { geocodeAddress } from '@/lib/google-maps'
+import { isValidTimezone } from '@/lib/timezone'
 
 function errorRedirect(message: string): never {
   redirect(`/settings?error=${encodeURIComponent(message)}`)
@@ -34,6 +35,20 @@ async function resolveCoordinates(address: string | null) {
   return { geo_lat: point?.lat ?? null, geo_lng: point?.lng ?? null }
 }
 
+/**
+ * Blank means "use the company's", which is the answer for nearly every venue.
+ * A name that is not a real zone is refused rather than stored: it would make
+ * every shift at this venue throw when its time is formatted.
+ */
+function readTimezone(formData: FormData): string | null {
+  const value = String(formData.get('timezone') ?? '').trim()
+  if (!value) return null
+  if (!isValidTimezone(value)) {
+    errorRedirect(`"${value}" is not a timezone we recognise. Leave it blank to use the business's.`)
+  }
+  return value
+}
+
 export async function createVenue(formData: FormData) {
   const { supabase, profile } = await requireCompany()
 
@@ -46,6 +61,7 @@ export async function createVenue(formData: FormData) {
     company_id: profile.company_id,
     name,
     address,
+    timezone: readTimezone(formData),
     ...(await resolveCoordinates(address)),
   })
 
@@ -67,7 +83,7 @@ export async function updateVenue(venueId: string, formData: FormData) {
   // out of the wrong building without anything on screen looking wrong.
   const { error } = await supabase
     .from('venues')
-    .update({ name, address, ...(await resolveCoordinates(address)) })
+    .update({ name, address, timezone: readTimezone(formData), ...(await resolveCoordinates(address)) })
     .eq('id', venueId)
 
   if (error) errorRedirect(error.message)

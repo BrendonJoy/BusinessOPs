@@ -5,12 +5,18 @@ import { createClient } from '@/lib/supabase/server'
 import { setPendingConfirmationEmail } from '@/lib/pending-confirmation'
 import { readableAuthError } from '@/lib/auth-errors'
 import { PRIVACY_NOTICE_VERSION } from '@/lib/policies'
+import { isValidTimezone } from '@/lib/timezone'
 
 export async function signup(formData: FormData) {
   const email = String(formData.get('email') ?? '')
   const password = String(formData.get('password') ?? '')
   const fullName = String(formData.get('full_name') ?? '')
   const companyName = String(formData.get('company_name') ?? '')
+
+  // Detected in the browser, checked here. An unknown name would make
+  // Intl.DateTimeFormat throw on every screen that shows a time, so a bad value
+  // is dropped and handle_new_user falls back rather than being stored.
+  const timezone = String(formData.get('timezone') ?? '')
 
   // Checked server-side as well as in the browser. `required` on the input is a
   // convenience for people, not a control — this is the record we would rely on
@@ -31,6 +37,7 @@ export async function signup(formData: FormData) {
         full_name: fullName,
         company_name: companyName,
         accepted_privacy_version: PRIVACY_NOTICE_VERSION,
+        ...(isValidTimezone(timezone) ? { timezone } : {}),
       },
     },
   })

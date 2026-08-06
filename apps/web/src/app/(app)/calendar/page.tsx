@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getCalendarGridDays, getMonthInfo } from '@/lib/calendar'
+import { getCompanyTimezone } from '@/lib/company'
+import { todayInZone } from '@/lib/timezone'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { JobWithCustomer } from '@/lib/jobs'
 import { JOB_STATUS_LABELS, type JobStatus } from '@trade-assist/db'
@@ -22,18 +24,18 @@ export default async function CalendarPage({
   const { month } = await searchParams
   const monthInfo = getMonthInfo(month)
   const gridDays = getCalendarGridDays(monthInfo.year, monthInfo.month)
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-    today.getDate()
-  ).padStart(2, '0')}`
 
   const gridStart = gridDays[0]
   const gridEnd = gridDays[gridDays.length - 1]
 
-  // Drives the Today button, which only appears when it would do something.
+  const supabase = await createClient()
+
+  // Which cell gets the "today" ring, and whether the Today button does
+  // anything. Read in the company's zone: the server's own date is UTC, which
+  // put the ring on yesterday's cell all morning in New Zealand.
+  const todayStr = todayInZone(await getCompanyTimezone(supabase))
   const isCurrentMonth = monthInfo.monthParam === todayStr.slice(0, 7)
 
-  const supabase = await createClient()
   const currentProfile = await getCurrentProfile(supabase)
   const canSchedule = isCompanyAccount(currentProfile?.role) || Boolean(currentProfile?.can_schedule)
 
@@ -72,6 +74,7 @@ export default async function CalendarPage({
         eventName: shift.eventName,
         startsAt: shift.startsAt,
         endsAt: shift.endsAt,
+        zone: shift.zone,
         assignedCount: shift.assigned.length,
       })
       shiftsByDate[shift.localDate] = list

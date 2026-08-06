@@ -4,7 +4,9 @@ import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getRosterContext, getShiftsAwaitingResponse, getShiftsInDateRange } from '@/lib/roster'
 import { LocalTimeRange } from '@/components/LocalTime'
 import { respondToShift } from './actions'
-import { formatDate, formatDayLabel, toYmd } from '@/lib/dates'
+import { getCompanyTimezone } from '@/lib/company'
+import { todayInZone } from '@/lib/timezone'
+import { addDaysToYmd, formatDate, formatDayLabel } from '@/lib/dates'
 import { Button, EmptyState, Field, Input, Notice, PageHeader, cardClasses } from '@/components/ui'
 import type { Venue } from '@trade-assist/db'
 import ShiftCard from './ShiftCard'
@@ -13,10 +15,13 @@ import AddShiftForm from './AddShiftForm'
 /**
  * The roster by date, including "dark day" shifts that belong to no event.
  *
- * The default window starts yesterday rather than today because the server does
- * not know the viewer's date — it only knows UTC. Reaching back a day means
- * nobody west of UTC opens this at 9am and finds their own shift missing. The
- * cost is one extra day of history, which is not a cost.
+ * The window is anchored to today *where the business is*, not where the server
+ * is. It used to be anchored to UTC, with a day of slack in front to stop anyone
+ * west of UTC opening this at 9am and finding their own shift missing.
+ *
+ * The day of slack stays, for a better reason: a shift is filed under the day it
+ * starts, so a pack-out running 20:00 to 02:00 belongs to yesterday. Without the
+ * reach-back the crew still on it at 1am would not see it.
  */
 const DAYS_AHEAD = 14
 
@@ -33,11 +38,11 @@ export default async function RosterPage({
 
   const isSingleDay = Boolean(date && /^\d{4}-\d{2}-\d{2}$/.test(date))
 
-  const serverToday = new Date()
-  const from = isSingleDay ? date! : toYmd(new Date(serverToday.getTime() - 86_400_000))
-  const to = isSingleDay
-    ? date!
-    : toYmd(new Date(serverToday.getTime() + DAYS_AHEAD * 86_400_000))
+  const zone = await getCompanyTimezone(supabase)
+  const today = todayInZone(zone)
+
+  const from = isSingleDay ? date! : addDaysToYmd(today, -1)
+  const to = isSingleDay ? date! : addDaysToYmd(today, DAYS_AHEAD)
 
   const [roster, shifts, { data: venuesData }] = await Promise.all([
     getRosterContext(supabase),
@@ -108,7 +113,7 @@ export default async function RosterPage({
                   </p>
                   <p className="text-muted">
                     {formatDayLabel(shift.localDate)}{' '}
-                    <LocalTimeRange start={shift.startsAt} end={shift.endsAt} />
+                    <LocalTimeRange start={shift.startsAt} end={shift.endsAt} zone={shift.zone} />
                   </p>
                 </div>
 
@@ -142,10 +147,11 @@ export default async function RosterPage({
           </p>
           <AddShiftForm
             eventDayId={null}
-            dayDate={isSingleDay ? date! : toYmd(serverToday)}
+            dayDate={isSingleDay ? date! : today}
             departments={roster.manageable}
             venues={venues}
             returnTo={returnTo}
+            zone={zone}
           />
         </section>
       )}

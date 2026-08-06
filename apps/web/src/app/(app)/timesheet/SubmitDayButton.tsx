@@ -1,20 +1,11 @@
-'use client'
-
-import { useSyncExternalStore } from 'react'
-
-const noopSubscribe = () => () => {}
-
-// The server needs the device's UTC offset to turn the local day into a UTC
-// window. useSyncExternalStore keeps SSR (no offset available) and the client
-// hydration consistent -- same pattern as the app's other browser-only reads.
-function useTimezoneOffset(): number | null {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => new Date().getTimezoneOffset(),
-    () => null
-  )
-}
-
+/**
+ * Submits one day's entries for approval.
+ *
+ * This used to read the device's UTC offset and post it, so the button stayed
+ * disabled until hydration and a day's boundaries depended on where the phone
+ * was. The server now builds the window from the company's timezone, which
+ * leaves nothing here that needs the browser — so it is a plain form again.
+ */
 export default function SubmitDayButton({
   workDate,
   submitAction,
@@ -22,15 +13,11 @@ export default function SubmitDayButton({
   workDate: string
   submitAction: (formData: FormData) => void
 }) {
-  const tzOffset = useTimezoneOffset()
-
   return (
     <form action={submitAction}>
       <input type="hidden" name="work_date" value={workDate} />
-      <input type="hidden" name="tz_offset_minutes" value={tzOffset ?? ''} />
       <button
         type="submit"
-        disabled={tzOffset === null}
         className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-50"
       >
         Submit for approval

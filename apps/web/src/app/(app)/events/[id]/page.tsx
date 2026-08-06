@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireEventsModule } from '@/lib/events'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { formatDate, formatDayLabel } from '@/lib/dates'
+import { getCompanyTimezone } from '@/lib/company'
+import { isValidTimezone } from '@/lib/timezone'
 import {
   EVENT_DAY_TYPES,
   EVENT_DAY_TYPE_LABELS,
@@ -53,6 +55,13 @@ export default async function EventDetailPage({
   const { data: venuesData } = await supabase.from('venues').select('*').order('name')
   const venues = (venuesData ?? []) as Venue[]
   const venue = venues.find((v) => v.id === event.venue_id) ?? null
+
+  // Shifts added here inherit the event's venue, so times typed on this page are
+  // that venue's clock. Shifts already saved carry their own resolved zone.
+  const eventZone =
+    venue?.timezone && isValidTimezone(venue.timezone)
+      ? venue.timezone
+      : await getCompanyTimezone(supabase)
 
   const { count: managedCount } = await supabase
     .from('team_memberships')
@@ -154,6 +163,7 @@ export default async function EventDetailPage({
                       dayDate={day.day_date}
                       departments={roster.manageable}
                       returnTo={returnTo}
+                      zone={eventZone}
                     />
                   )}
                 </li>

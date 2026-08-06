@@ -54,14 +54,10 @@ export default function ChatWidget() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // The server has no idea where the user is. Creating a shift means
-        // turning "Friday 6pm" into an instant, and doing that server-side
-        // would use UTC and put every shift half a day out.
-        body: JSON.stringify({
-          message,
-          tzOffsetMinutes: new Date().getTimezoneOffset(),
-          localDate: new Date().toLocaleDateString('en-CA'),
-        }),
+        // The device's clock is deliberately not sent. "Friday 6pm" means the
+        // venue's Friday 6pm, so the server resolves it against the company's
+        // timezone — which is also the one the shift will be read back in.
+        body: JSON.stringify({ message }),
       })
       const data = await res.json().catch(() => null)
       const reply = res.ok && data?.reply ? data.reply : 'Sorry — something went wrong. Try again.'

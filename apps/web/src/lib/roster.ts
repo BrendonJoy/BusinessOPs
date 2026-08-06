@@ -1,6 +1,8 @@
 import type { createClient } from '@/lib/supabase/server'
 import type { ShiftAssignmentStatus } from '@trade-assist/db'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
+import { getCompanyTimezone } from '@/lib/company'
+import { isValidTimezone, todayInZone } from '@/lib/timezone'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
@@ -20,6 +22,13 @@ export type RosterShift = {
   endsAt: string
   /** The day the shift belongs to, as the venue means it. See migration 0038. */
   localDate: string
+  /**
+   * The zone `startsAt` and `endsAt` should be read in — the shift's own venue,
+   * else its event's venue, else the company. Carried on the shift rather than
+   * left to each screen so the same shift cannot read 4pm in one place and 2pm
+   * in another.
+   */
+  zone: string
   positionsNeeded: number
   openToDepartment: boolean
   notes: string | null
@@ -201,12 +210,13 @@ export async function getClockableShifts(
 }
 
 const SHIFT_COLUMNS =
-  'id, team_id, event_day_id, title, starts_at, ends_at, local_date, notes, positions_needed, open_to_department'
+  'id, team_id, event_day_id, venue_id, title, starts_at, ends_at, local_date, notes, positions_needed, open_to_department'
 
 type ShiftRow = {
   id: string
   team_id: string
   event_day_id: string | null
+  venue_id: string | null
   title: string | null
   starts_at: string
   ends_at: string
@@ -214,6 +224,19 @@ type ShiftRow = {
   notes: string | null
   positions_needed: number
   open_to_department: boolean
+}
+
+/**
+ * A failed query must not be allowed to read as "no shifts".
+ *
+ * Every fetch here previously destructured `data` alone, so an RLS refusal or a
+ * dropped connection rendered an empty roster — indistinguishable from a quiet
+ * week. The assistant now reads through these too, and it has already once told
+ * someone a department was empty when it simply could not see into it. Throwing
+ * turns a silent lie into a visible failure.
+ */
+function assertLoaded(error: { message: string } | null): void {
+  if (error) throw new Error(`Could not load shifts: ${error.message}`)
 }
 
 /**
@@ -228,11 +251,13 @@ export async function getShiftsForEventDays(
 ): Promise<RosterShift[]> {
   if (eventDayIds.length === 0) return []
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shifts')
     .select(SHIFT_COLUMNS)
     .in('event_day_id', eventDayIds)
     .order('starts_at')
+
+  assertLoaded(error)
 
   return hydrateShifts(supabase, (data ?? []) as ShiftRow[])
 }
@@ -250,13 +275,15 @@ export async function getShiftsInDateRange(
   fromDate: string,
   toDate: string
 ): Promise<RosterShift[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shifts')
     .select(SHIFT_COLUMNS)
     .gte('local_date', fromDate)
     .lte('local_date', toDate)
     .order('local_date')
     .order('starts_at')
+
+  assertLoaded(error)
 
   return hydrateShifts(supabase, (data ?? []) as ShiftRow[])
 }
@@ -272,15 +299,19 @@ export async function getShiftsAwaitingResponse(
   supabase: SupabaseClient,
   profileId: string
 ): Promise<{ shift: RosterShift; myStatus: ShiftAssignmentStatus | null }[]> {
-  const today = new Date()
-  const from = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  // Today where the business is. This used to read the server's date, which on
+  // Vercel is UTC — so between midnight and noon in New Zealand it hid the very
+  // shifts being asked about that day.
+  const from = todayInZone(await getCompanyTimezone(supabase))
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('shifts')
     .select(SHIFT_COLUMNS)
     .gte('local_date', from)
     .order('local_date')
     .order('starts_at')
+
+  assertLoaded(error)
 
   // RLS has already limited this to departments the person belongs to.
   const shifts = await hydrateShifts(supabase, (data ?? []) as ShiftRow[])
@@ -362,15 +393,49 @@ async function hydrateShifts(
   const eventIds = [...new Set(days.map((d) => d.event_id))]
 
   const { data: eventData } = eventIds.length
-    ? await supabase.from('events').select('id, name').in('id', eventIds)
+    ? await supabase.from('events').select('id, name, venue_id').in('id', eventIds)
     : { data: [] }
 
-  const eventNameById = new Map(
-    ((eventData ?? []) as { id: string; name: string }[]).map((e) => [e.id, e.name])
-  )
+  const events = (eventData ?? []) as { id: string; name: string; venue_id: string | null }[]
+
+  const eventNameById = new Map(events.map((e) => [e.id, e.name]))
   const eventNameByDay = new Map(
     days.map((d) => [d.id, eventNameById.get(d.event_id) ?? null] as const)
   )
+
+  // Which venue each shift is at: its own, else its event's. Same inheritance
+  // the geofence uses — a shift without a venue of its own is at the event's.
+  const eventVenueById = new Map(events.map((e) => [e.id, e.venue_id]))
+  const eventVenueByDay = new Map(
+    days.map((d) => [d.id, eventVenueById.get(d.event_id) ?? null] as const)
+  )
+  const venueIdFor = (shift: ShiftRow) =>
+    shift.venue_id ?? (shift.event_day_id ? (eventVenueByDay.get(shift.event_day_id) ?? null) : null)
+
+  /*
+   * Zones, resolved once for the whole batch rather than per shift.
+   *
+   * Only venues that actually override the company's zone matter, and almost
+   * none do — one country, one answer. The query is skipped entirely when no
+   * shift in the batch is attached to a venue.
+   */
+  const companyZone = await getCompanyTimezone(supabase)
+  const venueIds = [...new Set(shifts.map(venueIdFor).filter((id): id is string => Boolean(id)))]
+
+  const { data: venueData } = venueIds.length
+    ? await supabase.from('venues').select('id, timezone').in('id', venueIds)
+    : { data: [] }
+
+  const venueZone = new Map(
+    ((venueData ?? []) as { id: string; timezone: string | null }[])
+      .filter((v) => v.timezone && isValidTimezone(v.timezone))
+      .map((v) => [v.id, v.timezone as string])
+  )
+
+  const zoneFor = (shift: ShiftRow) => {
+    const venueId = venueIdFor(shift)
+    return (venueId && venueZone.get(venueId)) || companyZone
+  }
 
   return shifts.map((shift) => ({
     id: shift.id,
@@ -382,6 +447,7 @@ async function hydrateShifts(
     startsAt: shift.starts_at,
     endsAt: shift.ends_at,
     localDate: shift.local_date,
+    zone: zoneFor(shift),
     positionsNeeded: shift.positions_needed,
     openToDepartment: shift.open_to_department,
     notes: shift.notes,

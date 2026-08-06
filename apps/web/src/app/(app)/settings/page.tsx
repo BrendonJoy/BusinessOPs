@@ -43,6 +43,10 @@ import {
   updateTeamMemberRole,
 } from './department-actions'
 import { createVenue, deleteVenue, updateVenue } from './venue-actions'
+import { allTimezones } from '@/lib/timezone'
+import TimezoneSelect from '@/components/TimezoneSelect'
+
+const TIMEZONE_LIST_ID = 'venue-timezones'
 import FileUploadButtons from '@/components/FileUploadButtons'
 import {
   Button,
@@ -264,6 +268,18 @@ export default async function SettingsPage({
             <label htmlFor="gst_registered" className="text-sm font-medium">
               GST / tax registered
             </label>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="timezone" className="text-sm font-medium">
+              Timezone
+            </label>
+            {/* The business's zone, not the reader's. Every time in the app is
+                shown in this, and times typed into a shift are read as it, so
+                two people in different countries see one roster. */}
+            <p className="text-xs text-muted">
+              Times are shown and entered in this zone, wherever the person looking is.
+            </p>
+            <TimezoneSelect id="timezone" zones={allTimezones()} current={company?.timezone ?? null} />
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="currency" className="text-sm font-medium">
@@ -780,6 +796,13 @@ export default async function SettingsPage({
           venue&apos;s address — its own if it has one, otherwise its event&apos;s.
         </p>
 
+        {/* Rendered once and shared by every venue's timezone input. */}
+        <datalist id={TIMEZONE_LIST_ID}>
+          {allTimezones().map((zone) => (
+            <option key={zone} value={zone} />
+          ))}
+        </datalist>
+
         {venues.length === 0 ? (
           <EmptyState
             title="No venues yet"
@@ -806,6 +829,16 @@ export default async function SettingsPage({
           </Field>
           <Field label="Address" htmlFor="new_venue_address" className="min-w-[200px] flex-1">
             <Input id="new_venue_address" name="address" type="text" placeholder="Street, suburb, city" />
+          </Field>
+          <Field label="Timezone" htmlFor="new_venue_timezone" hint="Only if different.">
+            <Input
+              id="new_venue_timezone"
+              name="timezone"
+              type="text"
+              list={TIMEZONE_LIST_ID}
+              placeholder="Same as business"
+              className="sm:w-44"
+            />
           </Field>
           <Button type="submit">Add venue</Button>
         </form>
@@ -934,6 +967,21 @@ function VenueEditor({ venue, geofenceEnabled }: { venue: Venue; geofenceEnabled
             type="text"
             defaultValue={venue.address ?? ''}
             placeholder="Street, suburb, city"
+          />
+        </Field>
+        {/* Blank means the business's zone, which is nearly always right. Only a
+            venue in another zone needs its own, and it is a datalist rather than
+            a select because one shared list beats repeating 400 options per
+            venue. */}
+        <Field label="Timezone" htmlFor={`venue_timezone-${venue.id}`} hint="Only if different.">
+          <Input
+            id={`venue_timezone-${venue.id}`}
+            name="timezone"
+            type="text"
+            list={TIMEZONE_LIST_ID}
+            defaultValue={venue.timezone ?? ''}
+            placeholder="Same as business"
+            className="sm:w-44"
           />
         </Field>
         <Button type="submit" size="sm">

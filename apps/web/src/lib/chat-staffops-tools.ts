@@ -3,13 +3,21 @@ import type { createClient } from '@/lib/supabase/server'
 import type { Profile } from '@trade-assist/db'
 import { EVENT_DAY_TYPES } from '@trade-assist/db'
 import { isCompanyAccount } from '@/lib/roles'
+import { resolveShiftTimezone } from '@/lib/company'
+import { getShiftsInDateRange } from '@/lib/roster'
+import { formatInZone, wallClockToInstant } from '@/lib/timezone'
+import { addDaysToYmd } from '@/lib/dates'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 export type ChatClock = {
-  /** `Date.getTimezoneOffset()` from the browser: UTC minus local, in minutes. */
-  tzOffsetMinutes: number
-  /** The user's own date, so "today" means their today and not the server's. */
+  /**
+   * The company's IANA zone. Resolved on the server from the company record —
+   * it used to be an offset the browser sent, which meant the assistant read
+   * "Friday 6pm" as the device's Friday 6pm rather than the venue's.
+   */
+  zone: string
+  /** Today where the business is, so "tomorrow" means the venue's tomorrow. */
   localDate: string
 }
 
@@ -121,33 +129,14 @@ export const STAFFOPS_TOOLS: Anthropic.Tool[] = [
 ]
 
 /**
- * Turns a local date and HH:MM into the instant the user meant.
- *
- * `getTimezoneOffset()` is UTC minus local, so UTC = local + offset. Doing this
- * with `new Date('...')` on the server would resolve in the server's zone, which
- * is UTC in production — every shift half a day out.
- */
-function toInstant(date: string, time: string, tzOffsetMinutes: number): string | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim())
-  if (!match || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
-
-  const asUtc = new Date(`${date}T00:00:00Z`)
-  if (Number.isNaN(asUtc.getTime())) return null
-
-  const minutes = Number(match[1]) * 60 + Number(match[2])
-  return new Date(asUtc.getTime() + (minutes + tzOffsetMinutes) * 60_000).toISOString()
-}
-
-/**
- * An instant back into the user's own wall clock, as HH:MM.
+ * An instant back into the venue's wall clock, as HH:MM.
  *
  * Tools must never hand the model a raw UTC timestamp. Given `04:00Z` for a 4pm
  * Auckland shift it will say "4am" — which it did, in a reply confirming who had
  * been rostered onto it.
  */
-function toLocalHHMM(iso: string, tzOffsetMinutes: number): string {
-  const local = new Date(new Date(iso).getTime() - tzOffsetMinutes * 60_000)
-  return `${String(local.getUTCHours()).padStart(2, '0')}:${String(local.getUTCMinutes()).padStart(2, '0')}`
+function toLocalHHMM(iso: string, zone: string): string {
+  return formatInZone(iso, zone, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 }
 
 function nameOf(person: { full_name: string | null; email: string }): string {
@@ -178,12 +167,16 @@ function succeeded(details: Record<string, unknown>) {
   return JSON.stringify({ ok: true, action_completed: true, ...details })
 }
 
+/**
+ * No clock is passed in: each tool resolves the zone it needs from the venue or
+ * the company, which is the only answer that matches what the shift will be read
+ * back as. The agent still keeps a ChatClock for the system prompt's "today".
+ */
 export async function executeStaffOpsTool(
   supabase: SupabaseClient,
   profile: Profile,
   name: string,
-  input: Record<string, unknown>,
-  clock: ChatClock
+  input: Record<string, unknown>
 ): Promise<string | null> {
   switch (name) {
     case 'list_departments': {
@@ -243,57 +236,28 @@ export async function executeStaffOpsTool(
         return failed('I need both dates as YYYY-MM-DD.')
       }
 
-      const { data: shifts, error } = await supabase
-        .from('shifts')
-        .select('id, title, local_date, starts_at, ends_at, positions_needed, open_to_department, team:teams(name)')
-        .gte('local_date', from)
-        .lte('local_date', to)
-        .order('local_date')
-        .limit(100)
-
-      if (error) return failed(`Could not read the roster: ${error.message}`)
-
-      const shiftIds = (shifts ?? []).map((s) => s.id as string)
-      const { data: assignments } = shiftIds.length
-        ? await supabase
-            .from('shift_assignments')
-            .select('shift_id, profile_id, status')
-            .in('shift_id', shiftIds)
-        : { data: [] }
-
-      const ids = [...new Set((assignments ?? []).map((a) => a.profile_id as string))]
-      const { data: people } = ids.length
-        ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
-        : { data: [] }
-
-      const byId = new Map(
-        ((people ?? []) as { id: string; full_name: string | null; email: string }[]).map((p) => [
-          p.id,
-          nameOf(p),
-        ])
-      )
+      // The same loader the roster screen uses, rather than a second query path
+      // of its own. It already resolves department names, who is on each shift
+      // and — the part that matters here — the zone each shift's times are in.
+      const shifts = await getShiftsInDateRange(supabase, from, to)
 
       return JSON.stringify({
-        shifts: (shifts ?? []).map((shift) => {
-          const mine = (assignments ?? []).filter((a) => a.shift_id === shift.id)
-          const confirmed = mine.filter((a) => a.status === 'confirmed')
+        shifts: shifts.slice(0, 100).map((shift) => {
+          const confirmed = shift.assigned.filter((p) => p.status === 'confirmed')
           return {
             shift_id: shift.id,
             title: shift.title,
-            // supabase-js types a to-one embed as an array; it is a single row.
-            department: (shift.team as unknown as { name: string } | null)?.name,
-            date: shift.local_date,
+            department: shift.teamName,
+            date: shift.localDate,
             // Local wall-clock only. The raw instants are deliberately not
             // included: given one, the model reports it as the time of day.
-            start_time: toLocalHHMM(shift.starts_at as string, clock.tzOffsetMinutes),
-            end_time: toLocalHHMM(shift.ends_at as string, clock.tzOffsetMinutes),
-            needed: shift.positions_needed,
-            confirmed: confirmed.map((a) => byId.get(a.profile_id as string)),
-            available: mine
-              .filter((a) => a.status === 'available')
-              .map((a) => byId.get(a.profile_id as string)),
-            still_needed: Math.max(0, (shift.positions_needed as number) - confirmed.length),
-            open_to_department: shift.open_to_department,
+            start_time: toLocalHHMM(shift.startsAt, shift.zone),
+            end_time: toLocalHHMM(shift.endsAt, shift.zone),
+            needed: shift.positionsNeeded,
+            confirmed: confirmed.map((p) => p.name),
+            available: shift.assigned.filter((p) => p.status === 'available').map((p) => p.name),
+            still_needed: Math.max(0, shift.positionsNeeded - confirmed.length),
+            open_to_department: shift.openToDepartment,
           }
         }),
       })
@@ -370,19 +334,9 @@ export async function executeStaffOpsTool(
       }
 
       const date = String(input.date ?? '')
-      const startsAt = toInstant(date, String(input.start_time ?? ''), clock.tzOffsetMinutes)
-      let endsAt = toInstant(date, String(input.end_time ?? ''), clock.tzOffsetMinutes)
 
-      if (!startsAt || !endsAt) {
-        return failed('That shift was NOT created — I need a date, a start time and a finish time.')
-      }
-
-      // A finish earlier than the start means the shift runs past midnight,
-      // which is a pack-out rather than a mistake.
-      if (new Date(endsAt) <= new Date(startsAt)) {
-        endsAt = new Date(new Date(endsAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
-      }
-
+      // Resolved before the times, because which event day a shift lands on
+      // decides which venue it is at, and the venue decides the zone.
       let eventDayId: string | null = null
       const eventName = String(input.event_name ?? '').trim()
       if (eventName) {
@@ -401,6 +355,26 @@ export async function executeStaffOpsTool(
             .maybeSingle()
           eventDayId = (day?.id as string) ?? null
         }
+      }
+
+      // Through the same helper the roster form uses, so a shift the assistant
+      // creates and one a manager types are read back identically.
+      const zone = await resolveShiftTimezone(supabase, { venueId: null, eventDayId })
+
+      const startsAt = wallClockToInstant(zone, date, String(input.start_time ?? ''))
+      let endsAt = wallClockToInstant(zone, date, String(input.end_time ?? ''))
+
+      if (!startsAt || !endsAt) {
+        return failed('That shift was NOT created — I need a date, a start time and a finish time.')
+      }
+
+      // A finish earlier than the start means the shift runs past midnight,
+      // which is a pack-out rather than a mistake. Resolved as the same wall
+      // clock on the next day rather than by adding 24 hours, which would be an
+      // hour out on the two nights a year the clocks change.
+      if (new Date(endsAt) <= new Date(startsAt)) {
+        endsAt =
+          wallClockToInstant(zone, addDaysToYmd(date, 1), String(input.end_time ?? '')) ?? endsAt
       }
 
       const needed = Number(input.people_needed ?? 1)

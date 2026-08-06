@@ -14,6 +14,7 @@ export default function AddShiftForm({
   departments,
   venues = [],
   returnTo,
+  zone,
 }: {
   eventDayId: string | null
   dayDate: string
@@ -21,6 +22,8 @@ export default function AddShiftForm({
   /** Only offered for dark-day shifts; event shifts inherit the event's venue. */
   venues?: Venue[]
   returnTo: string
+  /** The company's zone. The typed times are read as this, wherever the manager is. */
+  zone: string
 }) {
   if (departments.length === 0) {
     return (
@@ -84,6 +87,7 @@ export default function AddShiftForm({
         idPrefix={idPrefix}
         defaultStart={`${dayDate}T09:00`}
         defaultEnd={`${dayDate}T17:00`}
+        zone={zone}
       />
 
       {/* An open call is how a shift needing ten gets filled from a pool of

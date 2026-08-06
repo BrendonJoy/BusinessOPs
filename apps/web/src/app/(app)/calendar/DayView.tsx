@@ -223,7 +223,7 @@ export default function DayView({
                   className="rounded border border-accent/40 bg-accent/10 px-2 py-1.5 text-xs"
                 >
                   <span className="font-medium tabular-nums">
-                    <LocalTimeRange start={shift.startsAt} end={shift.endsAt} />
+                    <LocalTimeRange start={shift.startsAt} end={shift.endsAt} zone={shift.zone} />
                   </span>
                   <span className="ml-2">{shift.title ?? shift.teamName}</span>
                   {shift.title && <span className="ml-1 text-muted">{shift.teamName}</span>}

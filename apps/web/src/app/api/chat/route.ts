@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/roles'
 import { runChatAgent } from '@/lib/chat-agent'
+import { getCompanyTimezone } from '@/lib/company'
+import { todayInZone } from '@/lib/timezone'
 
 export async function GET() {
   const supabase = await createClient()
@@ -22,30 +24,24 @@ export async function POST(request: Request) {
   const profile = await getCurrentProfile(supabase)
   if (!profile) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = (await request.json().catch(() => null)) as {
-    message?: string
-    tzOffsetMinutes?: number
-    localDate?: string
-  } | null
+  const body = (await request.json().catch(() => null)) as { message?: string } | null
 
   const message = body?.message?.trim()
   if (!message) return Response.json({ error: 'Empty message' }, { status: 400 })
   if (message.length > 4000) return Response.json({ error: 'Message too long' }, { status: 400 })
 
-  // Sent by the browser because the server cannot know it. Both are validated
-  // rather than trusted — an offset beyond ±14h or a malformed date would end
-  // up baked into stored shift times.
-  const offset = body?.tzOffsetMinutes
-  const tzOffsetMinutes =
-    typeof offset === 'number' && Number.isFinite(offset) && Math.abs(offset) <= 14 * 60
-      ? offset
-      : 0
-
-  const localDate =
-    typeof body?.localDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.localDate)
-      ? body.localDate
-      : new Date().toISOString().slice(0, 10)
-
-  const { reply } = await runChatAgent(supabase, profile, message, { tzOffsetMinutes, localDate })
+  /*
+   * The clock comes from the company record, not from the browser.
+   *
+   * It used to be an offset and a date the client posted, which had to be
+   * validated as untrusted input and was the wrong answer anyway: a manager
+   * messaging the assistant from another country would have "tomorrow" and
+   * "6pm" resolved against their own clock rather than the venue's.
+   */
+  const zone = await getCompanyTimezone(supabase)
+  const { reply } = await runChatAgent(supabase, profile, message, {
+    zone,
+    localDate: todayInZone(zone),
+  })
   return Response.json({ reply })
 }
