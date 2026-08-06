@@ -6,6 +6,12 @@ import { isCompanyAccount } from '@/lib/roles'
 import { createJobRecord } from '@/lib/job-create'
 import { logJobAudit } from '@/lib/audit'
 import { planRoute, applyRoute } from '@/app/(app)/calendar/route-actions'
+import { eventsAvailable } from '@/lib/events'
+import {
+  STAFFOPS_TOOLS,
+  executeStaffOpsTool,
+  type ChatClock,
+} from '@/lib/chat-staffops-tools'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
@@ -328,16 +334,28 @@ async function executeTool(
   }
 }
 
-function buildSystemPrompt(profile: Profile): string {
-  const today = new Date().toISOString().slice(0, 10)
+function buildSystemPrompt(profile: Profile, clock: ChatClock, staffOps: boolean): string {
+  // The user's own date, not the server's. At 9am in Auckland the server is
+  // still on yesterday, and an assistant that books "tomorrow" a day early is
+  // worse than one that refuses.
+  const today = clock.localDate
   const isCompany = isCompanyAccount(profile.role)
   return [
     `You are the BusinessOps assistant, built into a job-management app for trade businesses. You are talking to ${profile.full_name ?? 'a user'} (${isCompany ? 'the Company account — full access' : 'a staff member'}). Today's date is ${today}.`,
+    ...(staffOps
+      ? [
+          'This company also uses StaffOps for events and rostering. You can list departments and their members (list_departments), read the roster (get_roster), create events with their pack-in, show and pack-out days (create_event), create shifts (create_shift), and ask named people to work a shift (roster_staff).',
+          'Always call list_departments before creating a shift or rostering anyone, so you use real department names and real people rather than guessing. Give shift times as the local times the user said — do not convert them.',
+          'A department with members_visible false is one this user cannot see into. Say its members are not visible to them. NEVER say such a department is empty, has nobody, or has no one assigned — you do not know that, and saying it would be false.',
+          'Rostering someone ASKS them; it does not put them on. They accept or decline and a manager confirms who actually works it. Say that plainly rather than implying someone is booked. For a shift needing several people out of a larger pool, suggest open_to_department so anyone in it can offer.',
+        ]
+      : []),
     'You can: answer questions about their jobs and schedule (get_schedule, get_job_details), create jobs (create_job), add line items to draft quotes/invoices (draft_line_items), plan and apply efficient driving routes for a day (plan_route, then apply_route only after the user confirms), and send feedback to the development team (submit_feedback).',
     'If a message starts with @idea or @support, submit it as feedback with that category (strip the tag) and confirm it was passed to the development team. Also offer submit_feedback when the user describes a bug or wishes the app did something.',
     'Resolve relative dates ("tomorrow", "next Tuesday") yourself before calling tools. Never invent customer details, prices, or times the user did not give — unstated prices are 0, unknown fields stay empty, and ask when something essential is missing.',
     'Data access is permission-scoped: if a lookup returns nothing, the job may not exist or the user may not have access — say so plainly.',
     'Never claim an action was performed unless you actually called the tool in this turn and it returned success. Earlier tool results are not available in later turns — re-run a tool if you need its data again.',
+    'A tool result containing "ok": false means THE ACTION DID NOT HAPPEN. Never say Done, Created, Added, Set up or Rostered after one. Relay its "tell_the_user" text to the user instead, in your own words but without softening it. Permission refusals are normal and expected — report them plainly rather than treating them as something to work around.',
     'Keep replies short and practical, like a helpful office manager. Use plain text, no markdown tables.',
   ].join('\n\n')
 }
@@ -345,7 +363,8 @@ function buildSystemPrompt(profile: Profile): string {
 export async function runChatAgent(
   supabase: SupabaseClient,
   profile: Profile,
-  userMessage: string
+  userMessage: string,
+  clock: ChatClock = { tzOffsetMinutes: 0, localDate: new Date().toISOString().slice(0, 10) }
 ): Promise<{ reply: string }> {
   await supabase.from('chat_messages').insert({
     company_id: profile.company_id,
@@ -375,13 +394,19 @@ export async function runChatAgent(
       }))
 
       const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const system = buildSystemPrompt(profile)
+
+      // StaffOps tools are only offered where the product is available. A trades
+      // business should not pay tokens for tool definitions about departments it
+      // does not have, nor be told the assistant can roster.
+      const staffOps = await eventsAvailable(supabase)
+      const system = buildSystemPrompt(profile, clock, staffOps)
+      const tools = staffOps ? [...TOOLS, ...STAFFOPS_TOOLS] : TOOLS
 
       let response = await client.messages.create({
         model: MODEL,
         max_tokens: 1500,
         system,
-        tools: TOOLS,
+        tools,
         messages,
       })
 
@@ -392,7 +417,12 @@ export async function runChatAgent(
 
         for (const block of response.content) {
           if (block.type !== 'tool_use') continue
-          const result = await executeTool(supabase, profile, block.name, block.input as Record<string, unknown>)
+          const input = block.input as Record<string, unknown>
+          // StaffOps tools first; it returns null for anything it does not own,
+          // which falls through to the BusinessOps set.
+          const result =
+            (staffOps ? await executeStaffOpsTool(supabase, profile, block.name, input, clock) : null) ??
+            (await executeTool(supabase, profile, block.name, input))
           toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
         }
 
@@ -403,7 +433,7 @@ export async function runChatAgent(
           model: MODEL,
           max_tokens: 1500,
           system,
-          tools: TOOLS,
+          tools,
           messages,
         })
       }
