@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyModules, getTimesheetSettings } from '@/lib/company'
 import { getClockableShifts } from '@/lib/roster'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { formatDayLabel } from '@/lib/dates'
 import { Card, EmptyState } from '@/components/ui'
 import { JOB_STATUS_GROUPS, TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
@@ -94,6 +95,7 @@ export default async function TimesheetPage({
 
   const settings = await getTimesheetSettings(supabase)
   const isCompany = isCompanyAccount(profile.role)
+  const staffFeatures = await companyHasStaffFeatures(supabase)
 
   const { data: openEntryData } = await supabase
     .from('timesheet_entries')
@@ -196,7 +198,9 @@ export default async function TimesheetPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Timesheet</h1>
-        {isCompany && (
+        {/* Both are about other people's time, so they belong to the Company
+            tier. A sole trader keeps their own timesheet below. */}
+        {isCompany && staffFeatures && (
           <div className="flex gap-4">
             <Link href="/timesheet/approvals" className="text-sm text-accent hover:opacity-80">
               Approvals →

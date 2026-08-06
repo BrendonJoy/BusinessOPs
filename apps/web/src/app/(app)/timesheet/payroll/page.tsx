@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import { getCompanyCurrency, getCompanyModules, getTimesheetSettings } from '@/lib/company'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { getPayrollReport, listRecentCycles } from '@/lib/payroll'
 import { formatMoney } from '@/lib/money'
 import { formatDate, formatTimestampDate } from '@/lib/dates'
@@ -34,7 +35,11 @@ export default async function PayrollPage({
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
   const { modules_timesheets_enabled } = await getCompanyModules(supabase)
-  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role)) redirect('/timesheet')
+  // Payroll is hours and pay across a team — nothing to report on for one person.
+  const staffFeatures = await companyHasStaffFeatures(supabase)
+  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role) || !staffFeatures) {
+    redirect('/timesheet')
+  }
 
   const settings = await getTimesheetSettings(supabase)
   const { currency } = await getCompanyCurrency(supabase)

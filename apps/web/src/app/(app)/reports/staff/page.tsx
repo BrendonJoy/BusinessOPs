@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { getCompanyModules } from '@/lib/company'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
 import type { TimesheetMiscCategory } from '@trade-assist/db'
@@ -49,7 +50,11 @@ export default async function StaffTimesheetReportPage({
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
   const { modules_timesheets_enabled } = await getCompanyModules(supabase)
-  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role)) redirect('/jobs')
+  // Lateness across staff. Meaningless with no staff.
+  const staffFeatures = await companyHasStaffFeatures(supabase)
+  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role) || !staffFeatures) {
+    redirect('/jobs')
+  }
 
   const { data } = await supabase
     .from('timesheet_entries')

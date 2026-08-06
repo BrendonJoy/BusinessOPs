@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { getCompanyModules } from '@/lib/company'
 import { TIMESHEET_MISC_CATEGORY_LABELS, type TimesheetDayStatus, type TimesheetMiscCategory } from '@trade-assist/db'
 import { Button, Card, EmptyState, Input, Notice } from '@/components/ui'
@@ -57,7 +58,13 @@ export default async function TimesheetApprovalsPage({
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
   const { modules_timesheets_enabled } = await getCompanyModules(supabase)
-  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role)) redirect('/timesheet')
+  // Approving is about other people's time, so it belongs to the Company tier.
+  // A sole trader still keeps their own timesheet — there is just nobody to
+  // approve.
+  const staffFeatures = await companyHasStaffFeatures(supabase)
+  if (!modules_timesheets_enabled || !isCompanyAccount(profile?.role) || !staffFeatures) {
+    redirect('/timesheet')
+  }
 
   const now = new Date()
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)

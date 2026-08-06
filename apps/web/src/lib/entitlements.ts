@@ -31,3 +31,33 @@ export function isEntitled(products: CompanyProduct[], product: ProductKey): boo
   const held = products.find((p) => p.product === product)
   return held !== undefined && held.status !== 'cancelled'
 }
+
+export function planFor(products: CompanyProduct[], product: ProductKey): string | null {
+  return products.find((p) => p.product === product)?.plan ?? null
+}
+
+/**
+ * Whether this account can have other people in it.
+ *
+ * The BusinessOps tier line is simply "more than one person": Individual is a
+ * sole trader with their own jobs, invoices and timesheets, and Company adds
+ * everyone else — inviting staff, pay rates, approving other people's time,
+ * payroll across a team, the staff report.
+ *
+ * Deliberately permissive when the row is missing or unrecognised. Getting this
+ * wrong in the generous direction shows someone a feature they might not have
+ * paid for; getting it wrong the other way locks a paying customer out of their
+ * own staff, which is far worse and lands on a support inbox.
+ */
+export function hasStaffFeatures(products: CompanyProduct[]): boolean {
+  if (!isEntitled(products, 'businessops')) return false
+  return planFor(products, 'businessops') !== 'individual'
+}
+
+/**
+ * Shortcut for server components, which almost always want the one answer
+ * rather than the whole list.
+ */
+export async function companyHasStaffFeatures(supabase: SupabaseClient): Promise<boolean> {
+  return hasStaffFeatures(await getCompanyProducts(supabase))
+}

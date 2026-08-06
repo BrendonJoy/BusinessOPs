@@ -14,7 +14,7 @@ import {
 } from '@trade-assist/db'
 import type { Company, CompanyInvite, PayType, Profile, StaffPermissions, Venue } from '@trade-assist/db'
 import { DELETION_GRACE_DAYS } from '@/lib/account-deletion'
-import { getCompanyProducts, isEntitled } from '@/lib/entitlements'
+import { getCompanyProducts, hasStaffFeatures, isEntitled } from '@/lib/entitlements'
 import { formatDate, toYmd } from '@/lib/dates'
 import {
   regenerateCalendarToken,
@@ -127,6 +127,7 @@ export default async function SettingsPage({
 
   const products = await getCompanyProducts(supabase)
   const hasStaffOps = isEntitled(products, 'staffops')
+  const staffFeatures = hasStaffFeatures(products)
 
   // Departments only matter once the events module is on — they exist to scope
   // rostering and pay-rate visibility, neither of which BusinessOps has. Bought
@@ -592,7 +593,9 @@ export default async function SettingsPage({
       </section>
       )}
 
-      {isCompany && (
+      {/* The whole section is the Company tier: inviting people, their pay
+          rates, what each can see. On Individual there is nobody to manage. */}
+      {isCompany && staffFeatures && (
       <section className={cardClasses()}>
         <h2 className="mb-4 text-sm font-medium">Team</h2>
 
@@ -749,7 +752,14 @@ export default async function SettingsPage({
                 key={held.product}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-surface-border px-3 py-2 text-sm"
               >
-                <span className="font-medium">{PRODUCT_LABELS[held.product]}</span>
+                <span className="font-medium">
+                  {PRODUCT_LABELS[held.product]}
+                  {held.product === 'businessops' && (
+                    <span className="ml-2 font-normal text-muted">
+                      {held.plan === 'individual' ? 'Individual' : 'Company'}
+                    </span>
+                  )}
+                </span>
                 <span className="flex items-center gap-2 text-xs text-muted">
                   {held.status === 'trialing' && held.trial_ends_at
                     ? `Trial — ends ${formatDate(toYmd(new Date(held.trial_ends_at)))}`

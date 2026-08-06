@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatDateYMD, getMonthInfo } from '@/lib/calendar'
 import { formatMoney } from '@/lib/money'
 import { getCompanyCurrency, getCompanyModules } from '@/lib/company'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { getCurrentProfile, canViewReports, isCompanyAccount } from '@/lib/roles'
 import type { Customer, CostEntry, Invoice, Job } from '@trade-assist/db'
 import {
@@ -35,6 +36,7 @@ export default async function ReportsPage({
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
   const { modules_reports_enabled } = await getCompanyModules(supabase)
+  const staffFeatures = await companyHasStaffFeatures(supabase)
   if (!modules_reports_enabled || !canViewReports(profile)) redirect('/jobs')
 
   const { currency } = await getCompanyCurrency(supabase)
@@ -94,7 +96,8 @@ export default async function ReportsPage({
       <PageHeader
         title="Reports"
         actions={
-          isCompanyAccount(profile?.role) && (
+          isCompanyAccount(profile?.role) &&
+          staffFeatures && (
             <>
               <Link href="/reports/staff" className="text-sm text-accent hover:opacity-80">
                 View staff timesheets →

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getBaseUrl } from '@/lib/url'
 import { getCurrentProfile, isCompanyAccount } from '@/lib/roles'
+import { companyHasStaffFeatures } from '@/lib/entitlements'
 import { sendTeamInviteEmail } from '@/lib/email'
 import type { AccessLevel } from '@trade-assist/db'
 
@@ -65,6 +66,14 @@ export async function inviteTeamMember(formData: FormData) {
   const supabase = await createClient()
   const profile = await getCurrentProfile(supabase)
   if (!profile || !isCompanyAccount(profile.role)) errorRedirect('Only the company account can invite teammates.')
+
+  // Hiding the form is not the control. On the Individual tier there is nobody
+  // to invite — but note this blocks *new* invites only: anyone already in the
+  // account keeps working. Locking existing staff out of an account they are
+  // rostered on would be a far worse failure than an over-generous plan.
+  if (!(await companyHasStaffFeatures(supabase))) {
+    errorRedirect('Inviting teammates needs the Company plan.')
+  }
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   if (!email) errorRedirect('Enter an email address.')
